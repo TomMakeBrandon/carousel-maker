@@ -48,7 +48,8 @@ header p{margin:4px 0 0;color:var(--muted);font-size:13px}
 body.hasBg header{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1 1 160px;min-width:0}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:0 0 auto;min-width:0}
+.row > label.f{flex:1 1 160px}
 input[type=text],input[type=password],textarea,select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
 select{padding:7px 9px}
 textarea{resize:vertical;min-height:44px}
