@@ -192,6 +192,10 @@ button.sm{font-size:14px;min-height:36px;padding:5px 12px}
       <button type="button" id="aiStop" hidden>멈추기</button>
       <span class="status" id="aiStatus"></span>
     </div>
+    <details id="resBox" hidden>
+      <summary>검색으로 찾은 정보</summary>
+      <div id="resBody" class="note" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+    </details>
     <details id="settings">
       <summary>설정</summary>
       <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
@@ -725,7 +729,9 @@ function buildPrompt(n,seen){
 ${st.memo.trim() ? '장소 설명(사용자가 쓴 사실, 그대로 믿고 반영): ' + st.memo.trim() + '\n' : ''}${st.style.tone.trim() ? '말투 요청: ' + st.style.tone.trim() + '\n' : ''}사진 ${n}장 중 ${seen}장이 순서대로 첨부돼 있다. 1번은 표지, 2번부터는 본문 슬라이드다.${seen<n?' 첨부되지 않은 사진은 장소 분위기에 맞게 일반적으로 쓴다.':''}
 
 규칙
-- 사진에 보이는 것과 장소 설명에 있는 것만 쓴다. 메뉴 이름을 확실히 알 수 없으면 '디저트', '라떼'처럼 일반 이름으로 쓴다.
+${researchBlock()}- 사진과 장소 설명이 가장 우선이다. 검색 정보는 메뉴 이름·가게 특징을 보충할 때만 쓰고, 검색 결과의 문장을 그대로 옮기지 않고 새로 쓴다.
+- 사진 속 메뉴가 검색 정보의 대표 메뉴와 맞아 보이면 그 이름을 써도 된다. 확실하지 않으면 '디저트', '라떼'처럼 일반 이름으로 쓴다.
+- 검색 정보의 주소·영업시간·가격은 쓰지 않는다(사용자가 확인한 뒤 따로 넣는다).
 - 지역(서울·대구 등)은 장소 설명에 있을 때만 쓴다.
 - 가격·주소·영업시간은 장소 설명에 있을 때만 캡션에 쓴다. 과장 표현 금지. 슬라이드 문구에는 이모지 없음.
 - 말투 요청이 없으면 담백한 감성. 한국어 문구는 짧은 명사형이나 '~하기', '~곳'으로 끝낸다.
@@ -747,15 +753,71 @@ ${st.memo.trim() ? '장소 설명(사용자가 쓴 사실, 그대로 믿고 반�
  "slides":[{"en_title":"","en_sub":"","ko_title":"","ko1":"","ko2":""}],
  "caption":""}`;
 }
-async function runCopy(){
+// ---------- web research (Gemini + Google Search), cached per place ----------
+let RES = null; // { key, out, srcs }
+const resKey = () => st.place.trim() + '|' + st.memo.split('\n').filter(l=>!/^(주소|영업시간|휴무|주차|메뉴):/.test(l.trim())).join(' ').trim();
+async function research(signal, force){
+  if(!GEM.key) return null;
+  if(!force && RES && RES.key===resKey()) return RES;
+  const prompt = `구글 검색으로 아래 가게를 조사해라. 네이버 블로그·플레이스, 카카오맵, 인스타그램 후기와 가게 소개를 우선 참고한다.
+가게 이름: ${st.place}
+참고(사용자 메모): ${st.memo || '없음'}
+정리할 것:
+- intro: 가게 소개 2~3문장 (어떤 곳인지, 분위기, 컨셉). 검색 결과 문장을 그대로 옮기지 말고 요약해서 새로 쓴다.
+- menu: 대표 메뉴(최대 6개)와 알면 가격
+- keywords: 후기에서 자주 나오는 특징·칭찬 포인트 5~8개 (짧은 명사구)
+- address, hours, closed, parking: 확인된 것만
+- notes: 이름이 같은 다른 지역 가게가 있어 헷갈리면 적는다
+확실하지 않거나 못 찾은 항목은 빈 값으로 둔다. 추측해서 채우지 않는다.
+JSON 하나만 답한다:
+{"name":"","intro":"","menu":[{"item":"","price":""}],"keywords":[],"address":"","hours":"","closed":"","parking":"","notes":""}`;
+  const j = await gemini([{ text: prompt }], signal, { tools:[{ google_search:{} }] });
+  const cand = j.candidates?.[0] || {};
+  const out = firstJSON(cand.content?.parts?.map(p=>p.text||'').join(''));
+  const srcs = (cand.groundingMetadata?.groundingChunks||[]).map(c=>c.web).filter(Boolean).slice(0,6);
+  RES = { key: resKey(), out, srcs };
+  showResearch();
+  return RES;
+}
+function researchBlock(){
+  if(!RES || RES.key!==resKey()) return '';
+  const o = RES.out, menu = (o.menu||[]).filter(m=>m&&m.item).map(m=>m.item).join(', ');
+  const kw = (o.keywords||[]).join(', ');
+  if(!o.intro && !menu && !kw) return '';
+  return `- 검색으로 찾은 참고 정보 (보충용):
+  소개: ${o.intro||'없음'}
+  대표 메뉴: ${menu||'없음'}
+  후기 키워드: ${kw||'없음'}
+`;
+}
+function showResearch(){
+  const b = $('resBody'); b.textContent = '';
+  if(!RES){ $('resBox').hidden = true; return; }
+  const o = RES.out, menu = (o.menu||[]).filter(m=>m&&m.item).map(m=>m.price?`${m.item} ${m.price}`:m.item);
+  if(o.intro) b.append(el('div',{text:o.intro}));
+  if(menu.length) b.append(el('div',{text:'대표 메뉴: '+menu.join(' / ')}));
+  if(o.keywords?.length) b.append(el('div',{text:'후기 키워드: '+o.keywords.join(', ')}));
+  if(o.notes) b.append(el('div',{class:'hint',text:'참고: '+o.notes}));
+  if(RES.srcs.length){ const s = el('div',{class:'src'},[el('span',{text:'출처'})]);
+    RES.srcs.forEach(w=>s.append(el('a',{href:w.uri,target:'_blank',rel:'noopener',text:w.title||w.uri}))); b.append(s); }
+  $('resBox').hidden = !b.childElementCount;
+}
+
+async function runCopy(onStep){
   const n = st.slides.length;
   if(!n) throw { message:'사진을 먼저 첨부해 주세요.' };
   if(!st.place.trim()) throw { message:'장소 이름을 먼저 넣어 주세요.' };
+  aiCtl = new AbortController();
+  const signal = aiCtl.signal;
+  if(GEM.key && !(RES && RES.key===resKey())){
+    onStep?.('가게 후기·소개 검색하는 중… (10~30초)');
+    try { await research(signal); } catch(e){ if(isCancel(e)) throw e; onStep?.('검색은 못 했어요. 사진만 보고 쓸게요…'); }
+  }
+  onStep?.('사진 보고 문구 쓰는 중… (30초~1분)');
   let max = n;
   if(sampleFn){ try { const lim = await sampleFn.limits(); max = lim.images ? Math.min(n, lim.images.maxCount) : 0; } catch(e){ max = 0; } }
   const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img)));
-  aiCtl = new AbortController();
-  const out = await aiJSON(buildPrompt(n,max), imgs, aiCtl.signal);
+  const out = await aiJSON(buildPrompt(n,max), imgs, signal);
   const c = out.cover||{};
   st.cover = { kicker:c.kicker||'', title:c.title||st.place, sub:c.sub||'', hook:c.hook||'' };
   (out.slides||[]).forEach((x,k)=>{ const s = st.slides[k+1]; if(!s) return;
@@ -767,8 +829,8 @@ function busy(on){ $('aiBtn').disabled = on; $('chatSend').disabled = on; $('inf
 $('aiBtn').onclick = async ()=>{
   const S = $('aiStatus'); S.classList.remove('err');
   if(!sampleFn && !GEM.key){ $('setup').hidden = false; $('gkey0').focus(); S.textContent = ERR.nokey; S.classList.add('err'); return; }
-  S.textContent = '사진 보고 문구 쓰는 중… (30초~1분)'; busy(true);
-  try { await runCopy(); S.textContent = '다 채웠어요. 고칠 곳은 바로 고치거나 아래 대화창에 말해 주세요.'; }
+  busy(true);
+  try { await runCopy(t=>S.textContent=t); S.textContent = '다 채웠어요. 고칠 곳은 바로 고치거나 아래 대화창에 말해 주세요.'; }
   catch(e){ if(isCancel(e)) S.textContent='멈췄어요.'; else { S.classList.add('err'); S.textContent = errText(e); } }
   finally { busy(false); }
 };
@@ -780,19 +842,12 @@ $('infoBtn').onclick = async ()=>{
   const S = $('infoStatus'); S.classList.remove('err');
   if(!st.place.trim()){ S.textContent='장소 이름을 먼저 넣어 주세요.'; S.classList.add('err'); return; }
   if(!GEM.key){ S.textContent = sampleFn ? '정보 찾기는 Gemini 키가 있어야 돼요.' : ERR.nokey; S.classList.add('err'); return; }
-  S.textContent = '검색하는 중… (10~30초)'; busy(true);
+  const cached = RES && RES.key===resKey();
+  S.textContent = cached ? '찾아 둔 정보를 보여 드릴게요.' : '검색하는 중… (10~30초)'; busy(true);
   try {
     aiCtl = new AbortController();
-    const prompt = `구글 검색으로 아래 가게의 최신 정보를 찾아라.
-가게 이름: ${st.place}
-참고(사용자 메모): ${st.memo || '없음'}
-찾을 것: 정확한 상호(지점 포함), 도로명 주소, 영업시간, 휴무일, 주차, 대표 메뉴와 가격(최대 4개).
-확실하지 않거나 못 찾은 항목은 빈 문자열로 둔다. 이름이 같은 다른 지역 가게가 있어 헷갈리면 notes에 적는다. 추측해서 채우지 않는다.
-JSON 하나만 답한다:
-{"name":"","address":"","hours":"","closed":"","parking":"","menu":[{"item":"","price":""}],"notes":""}`;
-    const j = await gemini([{ text: prompt }], aiCtl.signal, { tools:[{ google_search:{} }] });
-    const cand = j.candidates?.[0] || {};
-    const out = firstJSON(cand.content?.parts?.map(p=>p.text||'').join(''));
+    const R = await research(aiCtl.signal, false);
+    const out = R.out;
     infoItems = [];
     if(out.name) infoItems.push(['상호', out.name]);
     if(out.address) infoItems.push(['주소', out.address]);
@@ -806,7 +861,7 @@ JSON 하나만 답한다:
       L.append(el('label',{for:id},[cb, el('span',{text:`${k}: ${v}`})]));
     });
     if(out.notes) L.append(el('div',{class:'hint',text:'참고: '+out.notes}));
-    const srcs = (cand.groundingMetadata?.groundingChunks||[]).map(c=>c.web).filter(Boolean).slice(0,5);
+    const srcs = R.srcs.slice(0,5);
     const Sx = $('infoSrc'); Sx.textContent = '';
     if(srcs.length){ Sx.append(el('span',{text:'출처'})); srcs.forEach(w=>Sx.append(el('a',{href:w.uri,target:'_blank',rel:'noopener',text:w.title||w.uri}))); }
     $('infoBox').hidden = !infoItems.length;
@@ -942,7 +997,7 @@ $('chatForm').addEventListener('submit', async e=>{
     const reply = String(p.reply || '바꿨어요.');
     if(p.regen && st.slides.length){
       const m = addMsg('ai', reply, '문구를 새로 쓰는 중… (30초~1분)');
-      try { await runCopy(); m.querySelector('small').textContent = '문구를 새로 썼어요.'; }
+      try { await runCopy(t=>m.querySelector('small').textContent=t); m.querySelector('small').textContent = '문구를 새로 썼어요.'; }
       catch(err){ m.querySelector('small').textContent = isCancel(err) ? '멈췄어요.' : errText(err); }
     } else addMsg('ai', reply);
   } catch(err){
