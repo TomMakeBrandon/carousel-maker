@@ -150,6 +150,56 @@ body.p2{overflow:hidden;padding-bottom:0}
 .info input[type=checkbox]{margin-top:4px;accent-color:#ff8fa8;width:18px;height:18px;flex:0 0 auto}
 .src{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
 .src a{color:var(--ink);overflow-wrap:anywhere}
+/* AI progress */
+.prog{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.prog .pbar{flex:1;height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.prog .pbar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#ffb3c4,#ffe0e8,#ffb3c4);background-size:200% 100%;animation:pmove 1.4s linear infinite;transition:width .35s}
+@keyframes pmove{to{background-position:-200% 0}}
+.prog b{font-family:var(--label);font-weight:400;font-size:14px;color:var(--ink);min-width:3em;text-align:right}
+/* photo order (drag) */
+.order{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.order .it{position:relative;border-radius:12px;overflow:hidden;border:2px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;background:#000}
+.order .it canvas{width:100%;height:auto;aspect-ratio:4/5;display:block;pointer-events:none}
+.order .it span{position:absolute;left:4px;top:4px;background:var(--butter);color:var(--ink);font-size:11px;padding:0 6px;border-radius:999px;pointer-events:none}
+.order .it.cur{border-color:#ff8fa8}
+.order .it.drag{z-index:3;box-shadow:0 10px 24px rgba(0,0,0,.25);cursor:grabbing;opacity:.92}
+.order .it.over{outline:3px dashed #ff8fa8;outline-offset:2px}
+/* font picker sheet */
+.sheet{position:fixed;inset:0;z-index:40;background:rgba(40,25,30,.35);display:flex;align-items:flex-end;justify-content:center}
+.sheet .in{background:var(--surface);width:100%;max-width:760px;max-height:75vh;max-height:75dvh;overflow-y:auto;overscroll-behavior:contain;border-radius:26px 26px 0 0;padding:0 16px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px}
+.sheet .hd{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--surface);padding:14px 0 6px;z-index:1}
+.fontOpt{display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left;border-radius:18px;padding:8px 14px;box-shadow:none;min-height:0;width:100%}
+.fontOpt[aria-pressed="true"]{background:var(--sky);border-color:color-mix(in srgb,var(--sky) 60%,#7fb6d6)}
+.fontOpt .nm{font-family:var(--ui);font-size:12px;color:var(--muted)}
+.fontOpt .smp{font-size:24px;line-height:1.35;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.fontBtn{flex:1;min-width:0;text-align:left;font-size:18px;box-shadow:none;padding:5px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;border-radius:16px}
+.fontBtn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fontBtn small{font-family:var(--ui);font-size:12px;color:var(--muted);flex:0 0 auto}
+/* instagram-like preview */
+.ig{position:fixed;inset:0;z-index:30;background:#fff;color:#000;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.ig button{font-family:inherit;box-shadow:none;border:0;background:none;color:inherit;min-height:0;border-radius:8px}
+.igTop{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid #dbdbdb;font-weight:700;font-size:16px}
+.igTop button{font-size:22px;padding:4px 10px}
+.igScroll{flex:1;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)}
+.igPost{max-width:470px;margin:0 auto}
+.igHead{display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:14px}
+.igHead b{flex:1;font-weight:600}
+.igAv{width:34px;height:34px;border-radius:50%;background:conic-gradient(#ffb3c4,#ffe58a,#cfeaf8,#ffb3c4);padding:2px;flex:0 0 auto}
+.igAv i{display:block;width:100%;height:100%;border-radius:50%;border:2px solid #fff;background:#f3e6e2 center/cover}
+.igMedia{position:relative;background:#000}
+.igTrack{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.igTrack::-webkit-scrollbar{display:none}
+.igTrack canvas{flex:0 0 100%;width:100%;height:auto;aspect-ratio:4/5;scroll-snap-align:start;scroll-snap-stop:always;display:block}
+.igCount{position:absolute;top:12px;right:12px;background:rgba(18,18,18,.7);color:#fff;font-size:12px;padding:3px 9px;border-radius:999px}
+.igActs{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:8px 12px}
+.igActs .l{display:flex;gap:14px}.igActs .r{justify-self:end}
+.igActs svg{width:24px;height:24px;fill:none;stroke:#000;stroke-width:1.9;stroke-linejoin:round;stroke-linecap:round;display:block}
+.igDots{display:flex;gap:4px}.igDots i{width:6px;height:6px;border-radius:50%;background:#c7c7c7}.igDots i.on{background:#0095f6}
+.igLikes{padding:0 12px 4px;font-size:14px;font-weight:600}
+.igCap{padding:0 12px;font-size:14px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.igCap.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.igCap b{font-weight:600}
+.igMoreBtn{color:#737373!important;padding:2px 12px 20px!important;font-size:14px!important}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:2px solid var(--line);border-radius:24px 24px 0 0;z-index:5;
   padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .bar .in{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:center}
@@ -213,6 +263,7 @@ body.p2{overflow:hidden;padding-bottom:0}
       <button type="button" class="primary sm" id="aiBtn">AI 문구 채우기</button>
     </div>
   </div>
+  <div class="prog" id="aiProg" hidden><div class="pbar" role="progressbar" aria-label="AI 문구 진행" aria-valuemin="0" aria-valuemax="100" id="aiBarBox"><i id="aiBar"></i></div><b id="aiPct">0%</b><span id="aiSec"></span></div>
   <div class="status" id="aiStatus" aria-live="polite"></div>
 
   <div class="stage">
@@ -220,7 +271,8 @@ body.p2{overflow:hidden;padding-bottom:0}
     <div class="nav">
       <button type="button" class="sm" id="prevBtn" aria-label="이전 장">◀</button>
       <span class="pos" id="navTxt">1 / 1</span>
-      <button type="button" class="sm" id="gridBtn">전체 보기</button>
+      <button type="button" class="sm" id="gridBtn">전체</button>
+      <button type="button" class="sm" id="igBtn">인스타 보기</button>
       <button type="button" class="sm" id="nextBtn" aria-label="다음 장">▶</button>
     </div>
     <div class="tabs" role="tablist">
@@ -277,7 +329,7 @@ body.p2{overflow:hidden;padding-bottom:0}
     <div class="tabpanel" role="tabpanel" id="p-chat" aria-labelledby="t-chat" hidden>
       <div class="msgs" id="msgs" aria-live="polite">
         <div class="msg ai">말로 하면 바꿔 드려요. 바뀌는 건 위 미리보기에서 바로 보여요.
-예) "핸들 빼줘", "제목 손글씨체로", "제목만 노란색", "설명 글씨 좀 크게", "이 장만 제목 검은색", "글씨 좀 위로", "여긴 대구 카페야, 문구 다시 써줘", "캡션에 주차 가능하다고 넣어줘"</div>
+예) "핸들 빼줘", "제목 손글씨체로", "제목만 노란색", "설명 글씨 좀 크게", "이 장만 제목 검은색", "글씨 좀 위로", "표지 제목 더 크게","여긴 대구 카페야, 문구 다시 써줘", "캡션에 주차 가능하다고 넣어줘"</div>
       </div>
       <form class="chatIn" id="chatForm">
         <input type="text" id="chatText" placeholder="바꾸고 싶은 걸 말해 주세요" autocomplete="off" enterkeyhint="send">
@@ -311,6 +363,35 @@ body.p2{overflow:hidden;padding-bottom:0}
   </div>
 </main>
 
+<div class="ig" id="ig" role="dialog" aria-modal="true" aria-label="인스타 미리보기" hidden>
+  <div class="igTop"><button type="button" id="igClose" aria-label="닫기">✕</button><span>인스타 미리보기</span><span style="width:44px"></span></div>
+  <div class="igScroll">
+    <div class="igPost">
+      <div class="igHead"><span class="igAv"><i id="igAvImg"></i></span><b id="igName"></b><span aria-hidden="true">⋯</span></div>
+      <div class="igMedia"><div class="igTrack" id="igTrack"></div><span class="igCount" id="igCount">1/1</span></div>
+      <div class="igActs" aria-hidden="true">
+        <div class="l">
+          <svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.6 4.5 7.1 4.5c2 0 3.6 1.1 4.9 2.9 1.3-1.8 2.9-2.9 4.9-2.9 3.5 0 5.7 3.5 4.4 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M20.7 16.4A9 9 0 1 0 17 20l4 1z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M22 3 9.2 10.2M22 3l-7 18-4.8-10.8L2 6.5z"/></svg>
+        </div>
+        <div class="igDots" id="igDots"></div>
+        <div class="r"><svg viewBox="0 0 24 24"><path d="M19.5 21 12 14.6 4.5 21V3h15z"/></svg></div>
+      </div>
+      <div class="igLikes">좋아요 128개</div>
+      <div class="igCap clamp" id="igCap"></div>
+      <button type="button" class="igMoreBtn" id="igMore">더 보기</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="fontSheet" hidden>
+  <div class="in" role="dialog" aria-modal="true" aria-labelledby="fontTitle">
+    <div class="hd"><span class="lbl" id="fontTitle">폰트 고르기</span><button type="button" class="sm" id="fontClose">닫기</button></div>
+    <div id="fontList" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
 <div class="bar"><div class="in">
   <span class="status" id="saveStatus" style="flex:0 1 auto"></span>
   <button type="button" class="primary" id="toEditBtn">사진 첨부하고 다음으로</button>
@@ -330,6 +411,10 @@ const FONTS = [
   ['"Jua"','귀여운체'], ['"Nanum Myeongjo"','명조'], ['"Gowun Batang"','바탕'], ['"Nanum Pen Script"','손글씨'],
   ['Montserrat','영문 모던'], ['"Cormorant Garamond"','영문 클래식']
 ];
+const FONT_NOTE = { 'auto':'템플릿에 맞춘 글씨', '"Noto Sans KR"':'깔끔한 기본 글씨', '"Do Hyeon"':'두껍고 눈에 띄는 글씨', '"Gowun Dodum"':'부드럽고 둥근 글씨',
+  '"Jua"':'동글동글 귀여운 글씨', '"Nanum Myeongjo"':'책 같은 단정한 글씨', '"Gowun Batang"':'따뜻한 감성 글씨', '"Nanum Pen Script"':'손으로 쓴 글씨',
+  'Montserrat':'영어용 · 한글은 고딕', '"Cormorant Garamond"':'영어용 · 한글은 고딕' };
+const fontLabel = v => (FONTS.find(f=>f[0]===v)||FONTS[0])[1];
 const FONT_IDS = FONTS.map(f=>f[0]);
 const ROLES = [['t','큰 제목'],['k','윗줄'],['b','작은 설명'],['h','핸들']];
 const ROLE_KEYS = ROLES.map(r=>r[0]);
@@ -343,12 +428,12 @@ const $ = id => document.getElementById(id);
 
 // ---------- state ----------
 const ROLE0 = () => ({ font:'auto', color:null, size:1 });
-const STYLE0 = () => ({ showHandle:true, textY:0, shade:1, tone:'', roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), h:ROLE0() } });
+const STYLE0 = () => ({ showHandle:true, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), h:ROLE0() } });
 function loadStyle(){
   const s = STYLE0();
   try {
     const o = JSON.parse(LS.get('cm.style')||'{}');
-    for(const k of ['showHandle','textY','shade','tone']) if(o[k]!=null) s[k]=o[k];
+    for(const k of ['showHandle','textY','shade','tone','coverScale']) if(o[k]!=null) s[k]=o[k];
     if(o.roles) for(const r of ROLE_KEYS) if(o.roles[r]) s.roles[r] = { ...ROLE0(), ...o.roles[r] };
     if(o.titleScale && !o.roles) s.roles.t.size = o.titleScale;
     if(o.textScale && !o.roles){ s.roles.b.size = o.textScale; s.roles.k.size = o.textScale; }
@@ -434,15 +519,17 @@ function txt(ctx,str,x,y,o){
 const lines = (v,fb) => (v||fb||'').split('\n').map(t=>t.trim()).filter(Boolean).slice(0,2);
 const W90 = 'rgba(255,255,255,.9)', W80 = 'rgba(255,255,255,.8)';
 const SPARK = ' ˚₊‧';
+const coverK = i => i===0 ? (+st.style.coverScale || 1) : 1; // cover title is bigger, like a thumbnail
 
 const DRAW = {
   yoon(ctx,s,i,c){
-    const T = sz('t'), K = sz('k'), B = sz('b');
+    const CS = coverK(i), KS = 1+(CS-1)*.4;
+    const T = sz('t')*CS, K = sz('k'), B = sz('b');
     if(i===0){
-      grad(ctx,.45,.62);
-      txt(ctx,c.kicker,72,1094-84*T,{size:28,color:W90,role:'k'});
-      txt(ctx,(c.title||st.place).replace(/\n/g,' '),72,1094,{size:76,weight:700,role:'t'});
-      txt(ctx,c.sub,72,1094+56*B,{size:26,color:W80,role:'b'});
+      grad(ctx,.4,.66);
+      txt(ctx,c.kicker,72,1094-84*T,{size:28*KS,color:W90,role:'k'});
+      txt(ctx,(c.title||st.place).replace(/\n/g,' '),72,1094,{size:76*CS,weight:800,role:'t'});
+      txt(ctx,c.sub,72,1094+56*B*KS,{size:26*KS,color:W80,role:'b'});
     } else {
       grad(ctx,.5,.6);
       const dy = st.style.textY, top = 1038 - 166*T;
@@ -456,14 +543,15 @@ const DRAW = {
     txt(ctx,handleTxt(),W/2,1312,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
   },
   tomato(ctx,s,i,c){
-    const T = sz('t'), K = sz('k'), B = sz('b');
+    const CS = coverK(i), KS = 1+(CS-1)*.4;
+    const T = sz('t')*CS, K = sz('k'), B = sz('b');
     txt(ctx,handleTxt(),W/2,52,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
-    grad(ctx,.42,.72);
+    grad(ctx,i===0?.36:.42,.72);
     if(i===0){
-      const L = lines(c.hook, c.title||st.place), lh = 82*T, last = 1284 - 70*B;
-      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:66,weight:800,role:'t'}));
-      txt(ctx,c.kicker,74,last-(L.length-1)*lh-(60*T+24*K),{size:27,weight:500,color:W90,role:'k'});
-      if(c.sub) txt(ctx,'|  '+c.sub,74,1284,{size:24,weight:500,color:W90,role:'b'});
+      const L = lines(c.hook, c.title||st.place), lh = 82*T, last = 1284 - 70*B*KS;
+      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:66*CS,weight:800,role:'t'}));
+      txt(ctx,c.kicker,74,last-(L.length-1)*lh-(60*T+24*K*KS),{size:27*KS,weight:500,color:W90,role:'k'});
+      if(c.sub) txt(ctx,'|  '+c.sub,74,1284,{size:24*KS,weight:500,color:W90,role:'b'});
     } else {
       const L = lines(s.ko_title), lh = 68*T, last = 1270 - 74*B;
       L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:54,weight:800,role:'t'}));
@@ -472,14 +560,15 @@ const DRAW = {
     }
   },
   deon(ctx,s,i,c){
-    const T = sz('t'), B = sz('b');
-    grad(ctx,.36,.72);
+    const CS = coverK(i);
+    const T = sz('t')*CS, B = sz('b');
+    grad(ctx,i===0?.3:.36,.72);
     const L = i===0 ? lines(c.hook, c.title||st.place) : lines(s.ko_title);
-    const last = i===0 ? 1150 : 1090, lh = 70*T;
+    const last = i===0 ? 1170 : 1090, lh = 70*T;
     L.forEach((t,k)=>{
       const y = last-(L.length-1-k)*lh;
-      const w = txt(ctx,t,72,y,{size:52,weight:700,maxW:W-220,role:'t'});
-      if(k===L.length-1) txt(ctx,SPARK,72+w+4,y-6,{size:30,weight:500,color:W90,role:'t'});
+      const w = txt(ctx,t,72,y,{size:52*CS,weight:700,maxW:W-220,role:'t'});
+      if(k===L.length-1) txt(ctx,SPARK,72+w+4,y-6*CS,{size:30*CS,weight:500,color:W90,role:'t'});
     });
     const top = last-(L.length-1)*lh;
     txt(ctx,handleTxt(),72,top-66*T,{size:34,weight:500,fam:F.sc,italic:true,color:W90,role:'h'});
@@ -527,6 +616,7 @@ function scheduleRender(){
     await ensureFonts();
     const s = curSlide(); if(s) drawSlide($('mainCv'), s, st.cur);
     if(gridOpen) document.querySelectorAll('#thumbs canvas').forEach(cv=>{ const i = +cv.dataset.i; if(st.slides[i]) drawSlide(cv, st.slides[i], i); });
+    if(tab==='photo' && !gridOpen) document.querySelectorAll('canvas[data-oi]').forEach(cv=>{ const i = +cv.dataset.oi; if(st.slides[i]) drawSlide(cv, st.slides[i], i); });
   });
 }
 
@@ -575,8 +665,12 @@ function roleEditor(target, isOv, idp){
     if(isOv && !target[r]) target[r] = {};
     const cur = () => isOv ? { ...st.style.roles[r], ...Object.fromEntries(Object.entries(target[r]).filter(([,v])=>v!==undefined)) } : target[r];
     const set = (k,v) => { target[r][k] = v; if(!isOv) saveStyle(); scheduleRender(); paint(); };
-    const sel = el('select',{id:`${idp}-${r}-font`,'aria-label':`${name} 폰트`}, FONTS.map(([v,l])=>el('option',{value:v,text:l})));
-    sel.value = cur().font; sel.onchange = () => set('font', sel.value);
+    const sel = el('button',{type:'button',class:'fontBtn',id:`${idp}-${r}-font`,'aria-haspopup':'dialog'});
+    const showFont = () => { const f = cur().font || 'auto'; sel.textContent = '';
+      sel.append(el('span',{text:fontLabel(f),style: f==='auto' ? '' : `font-family:${f},var(--ui)`}), el('small',{text:'바꾸기 ▾'}));
+      sel.setAttribute('aria-label',`${name} 폰트: ${fontLabel(f)}, 바꾸기`); };
+    showFont();
+    sel.onclick = () => openFontSheet(name, cur().font || 'auto', v => { set('font', v); showFont(); });
     const rng = el('input',{type:'range',id:`${idp}-${r}-size`,min:.6,max:1.6,step:.05});
     rng.value = cur().size; rng.oninput = () => { target[r].size = +rng.value; if(!isOv) saveStyle(); scheduleRender(); };
     const sw = el('div',{class:'sw'});
@@ -599,6 +693,65 @@ function roleEditor(target, isOv, idp){
   return box;
 }
 
+// font picker: each option is written in its own font so the difference is visible
+let fontPick = null;
+function openFontSheet(roleName, curFont, onPick){
+  fontPick = onPick;
+  $('fontTitle').textContent = `${roleName} 폰트 고르기`;
+  const smp = (st.place||'').trim() || '오늘의 카페 산책';
+  const L = $('fontList'); L.textContent = '';
+  FONTS.forEach(([v,l])=>{
+    const b = el('button',{type:'button',class:'fontOpt','aria-pressed':String(v===curFont)},[
+      el('span',{class:'nm',text:`${l} · ${FONT_NOTE[v]||''}`}),
+      el('span',{class:'smp',text: v==='auto' ? '템플릿마다 정해진 글씨' : `${smp} 123`, style: v==='auto' ? '' : `font-family:${v},var(--ui)`})
+    ]);
+    b.onclick = () => { closeFontSheet(); onPick(v); };
+    L.append(b);
+  });
+  $('fontSheet').hidden = false;
+  L.querySelector('[aria-pressed="true"]')?.scrollIntoView({block:'center'});
+}
+function closeFontSheet(){ $('fontSheet').hidden = true; fontPick = null; }
+$('fontClose').onclick = closeFontSheet;
+$('fontSheet').addEventListener('click', e=>{ if(e.target === $('fontSheet')) closeFontSheet(); });
+
+// photo order grid: drag a thumbnail to a new spot, tap to open that slide
+function orderGrid(){
+  const G = el('div',{class:'order'});
+  st.slides.forEach((s,i)=>{
+    const it = el('div',{class:'it'+(i===st.cur?' cur':''),role:'button',tabindex:'0','aria-label':`${i===0?'표지':(i+1)+'번'} 사진, 끌어서 순서 바꾸기`},
+      [el('canvas',{width:108,height:135,'data-oi':i}), el('span',{text:i===0?'표지':String(i+1)})]);
+    it.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(i); } });
+    let sx=0, sy=0, drag=false, rects=null, over=-1, pid=null;
+    it.addEventListener('pointerdown',e=>{
+      if(e.button>0) return; pid = e.pointerId; sx = e.clientX; sy = e.clientY; drag = false;
+      try { it.setPointerCapture(pid); } catch(_){}
+    });
+    it.addEventListener('pointermove',e=>{
+      if(e.pointerId!==pid) return;
+      const dx = e.clientX-sx, dy = e.clientY-sy;
+      if(!drag){ if(Math.hypot(dx,dy) < 8) return; drag = true; it.classList.add('drag'); rects = [...G.children].map(c=>c.getBoundingClientRect()); }
+      it.style.transform = `translate(${dx}px,${dy}px)`;
+      let best = -1, bd = 1e9;
+      rects.forEach((r,k)=>{ const d = Math.hypot(e.clientX-(r.left+r.width/2), e.clientY-(r.top+r.height/2)); if(d<bd){ bd=d; best=k; } });
+      if(best!==over){ G.children[over]?.classList.remove('over'); over = best; if(over!==i) G.children[over]?.classList.add('over'); }
+    });
+    const end = e=>{
+      if(e.pointerId!==pid) return; pid = null;
+      if(!drag){ if(e.type==='pointerup') go(i); return; }
+      it.classList.remove('drag'); it.style.transform = ''; G.children[over]?.classList.remove('over');
+      if(e.type==='pointerup' && over>=0 && over!==i){
+        const keep = curSlide(); const [m] = st.slides.splice(i,1); st.slides.splice(over,0,m);
+        st.cur = Math.max(0, st.slides.indexOf(keep)); renderEditor();
+      }
+      drag = false; over = -1;
+    };
+    it.addEventListener('pointerup',end); it.addEventListener('pointercancel',end);
+    G.append(it);
+  });
+  return G;
+}
+
 // ---------- editor ----------
 function go(i){
   if(!st.slides.length) return;
@@ -617,7 +770,8 @@ function showTab(t){
   ['text','style','photo','cap','chat','set'].forEach(k=>$('p-'+k).hidden = gridOpen || k!==t);
   $('panes').scrollTop = 0;
   $('thumbsBox').hidden = !gridOpen;
-  $('gridBtn').textContent = gridOpen ? '닫기' : '전체 보기';
+  $('gridBtn').textContent = gridOpen ? '닫기' : '전체';
+  if(t==='photo' && !gridOpen) scheduleRender();
 }
 function renderStyleTab(){
   const P = $('styleDyn'); P.textContent = '';
@@ -637,6 +791,8 @@ function renderStyleTab(){
   } else {
     P.append(roleEditor(st.style.roles,false,'rg'));
   }
+  P.append(el('div',{class:'lbl',text:'표지 제목 크기 (썸네일용)'}));
+  P.append(slider(st.style,'coverScale','표지 제목',.8,2.2,.05,'gs',saveStyle));
   P.append(el('div',{class:'lbl',text:'글씨 위치·사진 어둡기 (모든 장)'}));
   P.append(slider(st.style,'textY','글씨 위치',-300,150,5,'gs',saveStyle));
   P.append(slider(st.style,'shade','어둡기',.3,1.6,.05,'gs',saveStyle));
@@ -663,7 +819,13 @@ function goPage(p, push=true){
   window.scrollTo(0,0);
 }
 function backToInfo(){ if(history.state && history.state.cmPage===2) history.back(); else goPage(1,false); }
-window.addEventListener('popstate',()=>{ if(page===2) goPage(1,false); });
+window.addEventListener('popstate',()=>{
+  if(igOpen){ closeIg(); return; }
+  if(!$('fontSheet').hidden) closeFontSheet();
+  if(page===2) goPage(1,false);
+});
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return;
+  if(!$('fontSheet').hidden) closeFontSheet(); else if(igOpen) $('igClose').click(); });
 document.querySelectorAll('.steps button').forEach(b=>b.onclick = ()=>{
   const to = +b.dataset.go; if(to===1 && page===2) backToInfo(); else if(to===2) toEdit();
 });
@@ -697,6 +859,8 @@ function renderEditor(){
           : FIELDS.inner[st.tpl].map(([k,l,m])=>field(s,k,l,m,'s'+s.id))).forEach(f=>P.append(f));
   // 사진
   const Q = $('p-photo'); Q.textContent = '';
+  Q.append(el('div',{class:'lbl',text:'사진 순서'}), el('div',{class:'hint',text:'사진을 끌어다 원하는 자리에 놓으면 순서가 바뀌어요. 첫 칸이 표지예요. 누르면 그 장으로 가요.'}), orderGrid());
+  Q.append(el('div',{class:'lbl',text: i===0 ? '표지 사진 맞추기' : `${i+1}번 사진 맞추기`}));
   Q.append(slider(s,'fy','위↔아래',0,1,.01,'p'+s.id), slider(s,'fx','좌↔우',0,1,.01,'p'+s.id), slider(s,'zoom','확대',1,2.5,.01,'p'+s.id));
   Q.append(el('div',{class:'row'},[
     el('button',{type:'button',class:'sm',onclick:()=>move(i-1)},['◀ 앞으로']),
@@ -724,8 +888,44 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick = ()=>{ gridOpen 
   cv.addEventListener('pointerdown',e=>{ sx = e.clientX; sy = e.clientY; });
   cv.addEventListener('pointercancel',()=>{ sx = null; });
   cv.addEventListener('pointerup',e=>{ if(sx==null) return; const dx = e.clientX-sx, dy = e.clientY-sy; sx = null;
-    if(Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(st.cur + (dx<0 ? 1 : -1)); });
+    if(Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(st.cur + (dx<0 ? 1 : -1));
+    else if(Math.hypot(dx,dy) < 10) openIg(st.cur); });
 })();
+
+// ---------- instagram-like preview ----------
+let igOpen = false;
+async function openIg(at){
+  if(!st.slides.length) return;
+  igOpen = true; $('ig').hidden = false;
+  try { history.pushState({cmPage:2, ig:1},''); } catch(e){}
+  const h = (st.handle||'').trim().replace(/^@+/,'') || 'my.account';
+  $('igName').textContent = h;
+  const cap = $('igCap'); cap.textContent = ''; cap.classList.add('clamp');
+  cap.append(el('b',{text:h+' '}), document.createTextNode(st.caption || '(캡션이 아직 없어요)'));
+  $('igMore').hidden = false;
+  const T = $('igTrack'), D = $('igDots'); T.textContent = ''; D.textContent = '';
+  const n = st.slides.length;
+  const px = Math.min(W, Math.round(Math.min(470, T.clientWidth || innerWidth) * (devicePixelRatio||1)));
+  await ensureFonts();
+  st.slides.forEach((s,i)=>{
+    const cv = el('canvas',{width:px,height:Math.round(px*H/W),'aria-label':`${i+1}번째 사진`}); drawSlide(cv,s,i); T.append(cv);
+    if(n>1) D.append(el('i'));
+  });
+  const av = document.createElement('canvas'); av.width = av.height = 80;
+  const ax = av.getContext('2d'), im = st.slides[0].img, m = Math.min(im.width,im.height);
+  ax.drawImage(im,(im.width-m)/2,(im.height-m)/2,m,m,0,0,80,80);
+  $('igAvImg').style.backgroundImage = `url(${av.toDataURL('image/jpeg',.8)})`;
+  const mark = () => { const k = Math.round(T.scrollLeft / Math.max(1,T.clientWidth));
+    $('igCount').textContent = `${k+1}/${n}`; $('igCount').hidden = n<2;
+    [...D.children].forEach((d,j)=>d.classList.toggle('on', j===k)); };
+  T.onscroll = mark;
+  requestAnimationFrame(()=>{ T.scrollLeft = (at||0) * T.clientWidth; mark(); });
+  $('igClose').focus();
+}
+function closeIg(){ igOpen = false; $('ig').hidden = true; $('igTrack').textContent = ''; }
+$('igClose').onclick = () => { if(history.state && history.state.ig) history.back(); else closeIg(); };
+$('igMore').onclick = () => { $('igCap').classList.remove('clamp'); $('igMore').hidden = true; };
+$('igBtn').onclick = () => openIg(st.cur);
 
 // ---------- photos ----------
 function loadImg(src){ return new Promise((ok,no)=>{ const im = new Image(); im.onload=()=>ok(im); im.onerror=no; im.src=src; }); }
@@ -937,21 +1137,51 @@ ${researchBlock()}- 사진과 장소 설명이 가장 우선이다. 검색 정�
  "slides":[{"en_title":"","en_sub":"","ko_title":"","ko1":"","ko2":""}],
  "caption":""}`;
 }
+// progress bar: the API gives no real progress, so each stage eases toward its end and creeps while waiting
+const PROG = { timer:null, t0:0, from:0, to:0, start:0, dur:1, p:0 };
+function progShow(){
+  clearInterval(PROG.timer); PROG.t0 = performance.now(); PROG.p = 0; $('aiProg').hidden = false; progStage(0,3,1);
+  PROG.timer = setInterval(progTick, 250); progTick();
+}
+function progStage(from,to,sec){ PROG.from = Math.max(from, PROG.p); PROG.to = to; PROG.start = performance.now(); PROG.dur = sec*1000; }
+function progTick(){
+  const e = performance.now() - PROG.start;
+  const p = PROG.from + (PROG.to - PROG.from) * (1 - Math.exp(-2.2 * e / PROG.dur));
+  progSet(p);
+}
+function progSet(p){
+  PROG.p = Math.max(PROG.p, Math.min(100, p));
+  const v = Math.floor(PROG.p);
+  $('aiBar').style.width = PROG.p + '%'; $('aiPct').textContent = v + '%';
+  $('aiBarBox').setAttribute('aria-valuenow', v);
+  $('aiSec').textContent = Math.round((performance.now() - PROG.t0)/1000) + '초';
+}
+function progEnd(ok){
+  clearInterval(PROG.timer); PROG.timer = null;
+  if(ok){ progSet(100); setTimeout(()=>{ if(!PROG.timer) $('aiProg').hidden = true; }, 1500); }
+  else $('aiProg').hidden = true;
+}
+
 async function runCopy(onStep){
   const n = st.slides.length;
   if(!n) throw { message:'사진을 먼저 첨부해 주세요.' };
   if(!st.place.trim()) throw { message:'장소 이름을 먼저 넣어 주세요.' };
   aiCtl = new AbortController();
   const signal = aiCtl.signal;
-  if(GEM.key && !(RES && RES.key===resKey())){
-    onStep?.('가게 후기·소개 검색하는 중… (10~30초)');
-    try { await research(signal); } catch(e){ if(isCancel(e)) throw e; onStep?.('검색은 못 했어요. 사진만 보고 쓸게요…'); }
-  }
-  onStep?.('사진 보고 문구 쓰는 중… (30초~1분)');
-  let max = n;
-  if(sampleFn){ try { const lim = await sampleFn.limits(); max = lim.images ? Math.min(n, lim.images.maxCount) : 0; } catch(e){ max = 0; } }
-  const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img)));
-  const out = await aiJSON(buildPrompt(n,max), imgs, signal);
+  progShow(); let ok = false, out;
+  try {
+    if(GEM.key && !(RES && RES.key===resKey())){
+      onStep?.('① 가게 후기·소개 검색하는 중… (10~30초)'); progStage(3,35,20);
+      try { await research(signal); } catch(e){ if(isCancel(e)) throw e; onStep?.('검색은 못 했어요. 사진만 보고 쓸게요…'); }
+    }
+    onStep?.('② 사진 준비하는 중…'); progStage(PROG.p, PROG.p+5, 3);
+    let max = n;
+    if(sampleFn){ try { const lim = await sampleFn.limits(); max = lim.images ? Math.min(n, lim.images.maxCount) : 0; } catch(e){ max = 0; } }
+    const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img)));
+    onStep?.('③ 사진 보고 문구·캡션 쓰는 중… (30초~1분)'); progStage(PROG.p, 97, 25 + 4*n);
+    out = await aiJSON(buildPrompt(n,max), imgs, signal);
+    ok = true;
+  } finally { progEnd(ok); }
   const c = out.cover||{};
   st.cover = { kicker:c.kicker||'', title:c.title||st.place, sub:c.sub||'', hook:c.hook||'' };
   (out.slides||[]).forEach((x,k)=>{ const s = st.slides[k+1]; if(!s) return;
@@ -1033,7 +1263,7 @@ function chatPrompt(req){
   const S = st.style;
   const now = {
     tpl: st.tpl, place: st.place, memo: st.memo, currentSlide: st.cur,
-    style: { showHandle:S.showHandle, textY:S.textY, shade:S.shade, tone:S.tone, roles:S.roles },
+    style: { showHandle:S.showHandle, textY:S.textY, shade:S.shade, coverScale:S.coverScale, tone:S.tone, roles:S.roles },
     cover: st.cover,
     slides: st.slides.slice(1).map((s,k)=>({ i:k+1, en_title:s.en_title, en_sub:s.en_sub, ko_title:s.ko_title, ko1:s.ko1, ko2:s.ko2 })),
     slideRoles: st.slides.map((s,i)=>s.ov ? { i, roles:s.ov } : null).filter(Boolean),
@@ -1055,6 +1285,7 @@ font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 - style.showHandle: 핸들(@계정) 표시 true/false
 - style.textY: 글씨 묶음 세로 위치(px, 이미지 높이 1350). 음수=위로. -300~150 (조금=40, 많이=100씩)
 - style.shade: 사진 아래쪽 어둡게 하는 정도 0.3~1.6 (기본 1)
+- style.coverScale: 표지(썸네일) 제목만 키우는 배수 0.8~2.2 (기본 1.45, 조금=0.15, 많이=0.3씩)
 - style.tone: 문구 말투 요청(문자열). 예: "발랄하게", "반말로"
 - tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형)
 - place: 장소 이름, memo: 장소 설명(지역·특징 등 사용자가 알려준 사실)
@@ -1078,7 +1309,7 @@ ${hist || '(없음)'}
 JSON 하나만 답한다:
 {"reply":"", "style":{}, "slideRoles":[], "tpl":null, "place":null, "memo":null, "cover":{}, "slides":[], "caption":null, "regen":false}`;
 }
-const RANGE = { textY:[-300,150], shade:[.3,1.6], size:[.6,1.6] };
+const RANGE = { textY:[-300,150], shade:[.3,1.6], coverScale:[.8,2.2], size:[.6,1.6] };
 const clampTo = (k,v,fb) => { const r = RANGE[k]; v = Number(v); if(!isFinite(v)) return fb; return Math.round(Math.min(r[1], Math.max(r[0], v))*100)/100; };
 function cleanRole(src, base){
   const out = {};
@@ -1091,7 +1322,7 @@ function cleanRole(src, base){
 }
 function applyPatch(p){
   const sp = p.style || {};
-  for(const k of ['textY','shade']) if(sp[k]!=null) st.style[k] = clampTo(k, sp[k], st.style[k]);
+  for(const k of ['textY','shade','coverScale']) if(sp[k]!=null) st.style[k] = clampTo(k, sp[k], st.style[k]);
   if(typeof sp.showHandle==='boolean') st.style.showHandle = sp.showHandle;
   if(typeof sp.tone==='string') st.style.tone = sp.tone.slice(0,80);
   if(sp.roles && typeof sp.roles==='object') for(const r of ROLE_KEYS) Object.assign(st.style.roles[r], cleanRole(sp.roles[r], st.style.roles[r]));
