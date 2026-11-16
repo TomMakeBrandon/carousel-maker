@@ -87,16 +87,27 @@ details[open] summary::before{content:"－"}
 .sl input{flex:1;accent-color:#ff8fa8;min-width:0}
 .empty{padding:32px 16px;text-align:center;color:var(--muted);font-family:var(--label)}
 
-/* editor */
-.editor{display:flex;flex-direction:column}
-.stage{position:sticky;top:env(safe-area-inset-top,0px);z-index:4;background:var(--bg);padding-block:8px 10px;display:flex;flex-direction:column;gap:8px;
-  margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding-inline:max(16px,env(safe-area-inset-left,0px))}
+/* pages */
+.steps{display:flex;gap:6px}
+.steps button{min-height:36px;padding:4px 12px;font-size:14px;box-shadow:0 2px 0 var(--lift)}
+.steps button[aria-current="page"]{background:var(--sky);border-color:color-mix(in srgb,var(--sky) 60%,#7fb6d6)}
+#page1 > .steps{justify-content:center}
+body.p2{overflow:hidden;padding-bottom:0}
+/* page 2 is a fixed, non-scrolling screen; only the tab pane scrolls inside */
+#page2{position:fixed;top:0;bottom:0;left:0;right:0;max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:8px;
+  padding:max(10px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(84px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#aiStatus{font-size:12px;min-height:0;line-height:1.35}
+#aiStatus:empty{display:none}
+.stage{display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
 .view{display:flex;justify-content:center}
-#mainCv{height:42vh;height:42dvh;width:auto;max-width:100%;aspect-ratio:4/5;border-radius:20px;border:2px solid var(--line);background:#000;touch-action:pan-y;display:block}
+#mainCv{height:36vh;height:36dvh;width:auto;max-width:100%;aspect-ratio:4/5;border-radius:20px;border:2px solid var(--line);background:#000;touch-action:pan-y;display:block}
+.panes{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-radius:26px}
+.panes .tabpanel{margin-top:0;box-shadow:none}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .nav .pos{font-family:var(--label);font-size:16px;background:var(--butter);padding:3px 14px;border-radius:999px;white-space:nowrap}
 .tabs{display:flex;gap:6px}
-.tabs button{flex:1;min-width:0;padding:7px 4px;font-size:15px;min-height:40px}
+.tabs button{flex:1;min-width:0;padding:6px 2px;font-size:14px;min-height:38px;box-shadow:0 2px 0 var(--lift)}
 .tabs button[aria-selected="true"]{background:var(--sky);border-color:color-mix(in srgb,var(--sky) 60%,#7fb6d6)}
 .tabpanel{background:var(--surface);border:2px solid var(--line);border-radius:26px;box-shadow:0 5px 0 var(--lift);padding:16px;display:flex;flex-direction:column;gap:14px;margin-top:4px}
 .thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -139,7 +150,12 @@ details[open] summary::before{content:"－"}
 </head>
 <body>
 <div id="appBg" aria-hidden="true"></div>
-<div class="wrap">
+
+<main id="page1" class="wrap">
+  <nav class="steps" aria-label="페이지">
+    <button type="button" data-go="1" aria-current="page">① 정보</button>
+    <button type="button" data-go="2">② 편집</button>
+  </nav>
   <header>
     <h1><span class="dot" aria-hidden="true"></span>캐러셀 메이커</h1>
     <p>장소 이름과 사진만 넣으면 인스타 캐러셀(1080×1350)로 저장해요.</p>
@@ -152,7 +168,7 @@ details[open] summary::before{content:"－"}
     <div class="row"><button type="button" class="primary" id="setupOk">저장</button></div>
   </section>
 
-  <section class="panel" aria-label="입력">
+  <section class="panel" aria-label="정보 입력">
     <div id="sampleNote" class="note" hidden>지금 보이는 건 예시예요(토스티데이즈 사진 6장, 문구는 예시로 쓴 것). 사진을 첨부하면 예시가 사라져요.</div>
     <div class="row">
       <label class="f">장소 이름<input type="text" id="place" placeholder="예: 토스티데이즈" autocomplete="off"></label>
@@ -163,84 +179,72 @@ details[open] summary::before{content:"－"}
     </div>
     <label class="f">장소 설명 (선택)<textarea id="memo" rows="2" placeholder="예: 대구 동성로 2층 카페, 창가 자리가 좋아요"></textarea></label>
     <div class="row">
-      <span class="filebtn"><button class="primary" type="button" tabindex="-1" id="fileLbl">사진 첨부하기</button><input type="file" id="files" accept="image/*" multiple aria-label="사진 첨부하기"></span>
+      <span class="filebtn"><button type="button" tabindex="-1" id="fileLbl">사진 첨부하기</button><input type="file" id="files" accept="image/*" multiple aria-label="사진 첨부하기"></span>
       <button type="button" id="clearBtn">사진 모두 지우기</button>
       <span class="status" id="countTxt"></span>
     </div>
-    <div>
-      <div class="lbl" style="margin-bottom:8px">템플릿</div>
-      <div class="chips">
-        <label class="chip"><input type="radio" name="tpl" value="yoon">번호형</label>
-        <label class="chip"><input type="radio" name="tpl" value="tomato">코스형</label>
-        <label class="chip"><input type="radio" name="tpl" value="deon">감성형</label>
-      </div>
-    </div>
-    <div class="row">
-      <button type="button" class="primary" id="aiBtn">AI로 문구 채우기</button>
-      <button type="button" id="aiStop" hidden>멈추기</button>
-      <span class="status" id="aiStatus"></span>
-    </div>
-    <details id="resBox" hidden>
-      <summary>검색으로 찾은 정보</summary>
-      <div id="resBody" class="note" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
-    </details>
-    <details id="settings">
-      <summary>설정</summary>
-      <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
-        <div class="status" id="modeTxt"></div>
-        <div id="geminiBox" class="row" hidden>
-          <label class="f">Gemini API 키 (이 기기에만 저장)<input type="password" id="gkey" autocomplete="off"></label>
-          <label class="f">모델 이름<input type="text" id="gmodel" autocomplete="off"></label>
-        </div>
-        <div class="row"><button type="button" class="sm" id="resetStyle">글씨 스타일·위치·어둡기 처음으로</button></div>
-        <div>
-          <div class="lbl" style="margin-bottom:8px">앱 배경 그림</div>
-          <div class="row">
-            <span class="filebtn"><button type="button" class="sm" tabindex="-1">그림 고르기</button><input type="file" id="bgFile" accept="image/*" aria-label="앱 배경 그림 고르기"></span>
-            <button type="button" class="sm" id="bgClear">배경 없애기</button>
-          </div>
-          <div class="chips" style="margin-top:8px">
-            <label class="chip"><input type="radio" name="bgMode" value="corner">오른쪽 아래</label>
-            <label class="chip"><input type="radio" name="bgMode" value="tile">반복</label>
-            <label class="chip"><input type="radio" name="bgMode" value="cover">꽉 채우기</label>
-          </div>
-          <label class="sl" style="margin-top:8px" for="bgOp"><span>진하기</span><input type="range" id="bgOp" min="0.1" max="1" step="0.05"></label>
-          <div class="status" id="bgStatus"></div>
-        </div>
-      </div>
-    </details>
+    <div class="hint">사진은 고른 순서대로 들어가고, 첫 장이 표지예요. 순서는 다음 페이지에서 바꿀 수 있어요.</div>
   </section>
+</main>
 
-  <div class="empty" id="empty">사진을 첨부하면 여기서 한 장씩 보면서 고칠 수 있어요. 첫 장이 표지예요.</div>
-
-  <section class="editor" id="editor" aria-label="편집" hidden>
-    <div class="stage">
-      <div class="view"><canvas id="mainCv" width="1080" height="1350" aria-label="지금 고치는 장 미리보기"></canvas></div>
-      <div class="nav">
-        <button type="button" class="sm" id="prevBtn" aria-label="이전 장">◀</button>
-        <span class="pos" id="navTxt">1 / 1</span>
-        <button type="button" class="sm" id="gridBtn">전체 보기</button>
-        <button type="button" class="sm" id="nextBtn" aria-label="다음 장">▶</button>
-      </div>
-      <div class="tabs" role="tablist">
-        <button type="button" role="tab" data-tab="text" id="t-text">문구</button>
-        <button type="button" role="tab" data-tab="style" id="t-style">글씨</button>
-        <button type="button" role="tab" data-tab="photo" id="t-photo">사진</button>
-        <button type="button" role="tab" data-tab="cap" id="t-cap">캡션</button>
-        <button type="button" role="tab" data-tab="chat" id="t-chat">대화</button>
-      </div>
+<main id="page2" hidden>
+  <div class="topbar">
+    <nav class="steps" aria-label="페이지">
+      <button type="button" data-go="1">① 정보</button>
+      <button type="button" data-go="2" aria-current="page">② 편집</button>
+    </nav>
+    <div class="row" style="gap:6px;flex-wrap:nowrap">
+      <button type="button" class="sm" id="aiStop" hidden>멈추기</button>
+      <button type="button" class="primary sm" id="aiBtn">AI 문구 채우기</button>
     </div>
+  </div>
+  <div class="status" id="aiStatus" aria-live="polite"></div>
 
+  <div class="stage">
+    <div class="view"><canvas id="mainCv" width="1080" height="1350" aria-label="지금 고치는 장 미리보기"></canvas></div>
+    <div class="nav">
+      <button type="button" class="sm" id="prevBtn" aria-label="이전 장">◀</button>
+      <span class="pos" id="navTxt">1 / 1</span>
+      <button type="button" class="sm" id="gridBtn">전체 보기</button>
+      <button type="button" class="sm" id="nextBtn" aria-label="다음 장">▶</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="text" id="t-text">문구</button>
+      <button type="button" role="tab" data-tab="style" id="t-style">글씨</button>
+      <button type="button" role="tab" data-tab="photo" id="t-photo">사진</button>
+      <button type="button" role="tab" data-tab="cap" id="t-cap">캡션</button>
+      <button type="button" role="tab" data-tab="chat" id="t-chat">대화</button>
+      <button type="button" role="tab" data-tab="set" id="t-set">설정</button>
+    </div>
+  </div>
+
+  <div class="panes" id="panes">
     <div class="tabpanel" id="thumbsBox" hidden>
       <div class="hint">누르면 그 장으로 가요.</div>
       <div class="thumbs" id="thumbs"></div>
     </div>
 
     <div class="tabpanel" role="tabpanel" id="p-text" aria-labelledby="t-text"></div>
-    <div class="tabpanel" role="tabpanel" id="p-style" aria-labelledby="t-style" hidden></div>
+
+    <div class="tabpanel" role="tabpanel" id="p-style" aria-labelledby="t-style" hidden>
+      <div>
+        <div class="lbl" style="margin-bottom:8px">템플릿</div>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="tpl" value="yoon">번호형</label>
+          <label class="chip"><input type="radio" name="tpl" value="tomato">코스형</label>
+          <label class="chip"><input type="radio" name="tpl" value="deon">감성형</label>
+        </div>
+      </div>
+      <div id="styleDyn" style="display:flex;flex-direction:column;gap:14px"></div>
+    </div>
+
     <div class="tabpanel" role="tabpanel" id="p-photo" aria-labelledby="t-photo" hidden></div>
 
     <div class="tabpanel" role="tabpanel" id="p-cap" aria-labelledby="t-cap" hidden>
+      <details id="resBox" hidden>
+        <summary>검색으로 찾은 정보</summary>
+        <div id="resBody" class="note" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+      </details>
       <div class="row" style="justify-content:space-between"><span class="lbl">게시물 캡션</span><button type="button" class="sm" id="copyCap">복사</button></div>
       <textarea id="caption" rows="10" placeholder="AI로 문구를 채우면 캡션도 같이 써요."></textarea>
       <div class="row">
@@ -266,12 +270,36 @@ details[open] summary::before{content:"－"}
       </form>
       <div class="hint">새 기능을 넣는 건 여기서 안 돼요. 그런 건 관리자에게 부탁해 주세요.</div>
     </div>
-  </section>
-</div>
+
+    <div class="tabpanel" role="tabpanel" id="p-set" aria-labelledby="t-set" hidden>
+      <div class="status" id="modeTxt"></div>
+      <div id="geminiBox" class="row" hidden>
+        <label class="f">Gemini API 키 (이 기기에만 저장)<input type="password" id="gkey" autocomplete="off"></label>
+        <label class="f">모델 이름<input type="text" id="gmodel" autocomplete="off"></label>
+      </div>
+      <div class="row"><button type="button" class="sm" id="resetStyle">글씨 스타일·위치·어둡기 처음으로</button></div>
+      <div>
+        <div class="lbl" style="margin-bottom:8px">앱 배경 그림</div>
+        <div class="row">
+          <span class="filebtn"><button type="button" class="sm" tabindex="-1">그림 고르기</button><input type="file" id="bgFile" accept="image/*" aria-label="앱 배경 그림 고르기"></span>
+          <button type="button" class="sm" id="bgClear">배경 없애기</button>
+        </div>
+        <div class="chips" style="margin-top:8px">
+          <label class="chip"><input type="radio" name="bgMode" value="corner">오른쪽 아래</label>
+          <label class="chip"><input type="radio" name="bgMode" value="tile">반복</label>
+          <label class="chip"><input type="radio" name="bgMode" value="cover">꽉 채우기</label>
+        </div>
+        <label class="sl" style="margin-top:8px" for="bgOp"><span>진하기</span><input type="range" id="bgOp" min="0.1" max="1" step="0.05"></label>
+        <div class="status" id="bgStatus"></div>
+      </div>
+    </div>
+  </div>
+</main>
 
 <div class="bar"><div class="in">
   <span class="status" id="saveStatus" style="flex:0 1 auto"></span>
-  <button type="button" class="primary" id="saveBtn">저장</button>
+  <button type="button" class="primary" id="toEditBtn">사진 첨부하고 다음으로</button>
+  <button type="button" class="primary" id="saveBtn" hidden>저장</button>
 </div></div>
 
 <script>
@@ -567,14 +595,16 @@ function move(to){
   const [s] = st.slides.splice(i,1); st.slides.splice(to,0,s); st.cur = to; renderEditor();
 }
 function showTab(t){
+  if(!$('p-'+t)) t = 'text';
   tab = t; LS.set('cm.tab',t);
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected', String(!gridOpen && b.dataset.tab===t)));
-  ['text','style','photo','cap','chat'].forEach(k=>$('p-'+k).hidden = gridOpen || k!==t);
+  ['text','style','photo','cap','chat','set'].forEach(k=>$('p-'+k).hidden = gridOpen || k!==t);
+  $('panes').scrollTop = 0;
   $('thumbsBox').hidden = !gridOpen;
   $('gridBtn').textContent = gridOpen ? '닫기' : '전체 보기';
 }
 function renderStyleTab(){
-  const P = $('p-style'); P.textContent = '';
+  const P = $('styleDyn'); P.textContent = '';
   const s = curSlide(); if(!s) return;
   const scope = el('div',{class:'chips'});
   [['all','모든 장'],['one','이 장만']].forEach(([v,l])=>{
@@ -602,16 +632,41 @@ function renderThumbs(){
     T.append(el('button',{type:'button','aria-label':`${i+1}번 장으로`,'aria-current':String(i===st.cur),onclick:()=>{ gridOpen=false; go(i); }},[cv, el('span',{text: i===0?'표지':String(i+1)})]));
   });
 }
+// ---------- pages ----------
+let page = 1;
+function goPage(p, push=true){
+  if(p===2 && !st.slides.length) return;
+  if(p===page) return;
+  page = p;
+  $('page1').hidden = p!==1; $('page2').hidden = p!==2;
+  document.body.classList.toggle('p2', p===2);
+  $('toEditBtn').hidden = p!==1; $('saveBtn').hidden = p!==2; $('saveStatus').textContent = '';
+  if(p===2){ if(push) try { history.pushState({cmPage:2},''); } catch(e){} renderEditor(); }
+  window.scrollTo(0,0);
+}
+function backToInfo(){ if(history.state && history.state.cmPage===2) history.back(); else goPage(1,false); }
+window.addEventListener('popstate',()=>{ if(page===2) goPage(1,false); });
+document.querySelectorAll('.steps button').forEach(b=>b.onclick = ()=>{
+  const to = +b.dataset.go; if(to===1 && page===2) backToInfo(); else if(to===2) toEdit();
+});
+let goNextAfterPick = false;
+function toEdit(){
+  if(st.slides.length) goPage(2);
+  else { goNextAfterPick = true; $('files').click(); }
+}
+$('toEditBtn').onclick = toEdit;
+
 function renderEditor(){
   const n = st.slides.length;
-  $('editor').hidden = !n; $('empty').hidden = n>0;
   $('countTxt').textContent = n ? `${n}장` : '';
   $('fileLbl').textContent = n ? '사진 추가' : '사진 첨부하기';
   $('files').setAttribute('aria-label', n ? '사진 추가' : '사진 첨부하기');
+  $('toEditBtn').textContent = n ? `다음으로 (${n}장) ▶` : '사진 첨부하고 다음으로';
+  document.querySelectorAll('.steps button[data-go="2"]').forEach(b=>b.disabled = !n);
   $('saveBtn').textContent = n ? `${n}장 저장` : '저장';
   $('saveBtn').disabled = !n;
   $('sampleNote').hidden = !st.sample;
-  if(!n){ gridOpen = false; return; }
+  if(!n){ gridOpen = false; if(page===2) backToInfo(); return; }
   if(st.cur >= n) st.cur = n-1;
   pickColors();
   const s = curSlide(), i = st.cur;
@@ -669,11 +724,14 @@ $('files').addEventListener('change', async e=>{
   for(const f of list){
     const url = URL.createObjectURL(f);
     try { const im = await loadImg(url); st.slides.push(newSlide(await shrink(im,1800))); }
-    catch(err){ $('aiStatus').textContent = `${f.name}을(를) 열지 못했어요.`; }
+    catch(err){ $('countTxt').textContent = `${f.name}을(를) 열지 못했어요.`; }
     finally { URL.revokeObjectURL(url); }
   }
   renderEditor();
+  if(goNextAfterPick && st.slides.length){ goNextAfterPick = false; goPage(2); }
 });
+// a tap on the page-1 photo button itself (not the bottom "next" button) should not jump pages
+$('files').addEventListener('click', e=>{ if(e.isTrusted) goNextAfterPick = false; });
 $('clearBtn').onclick = ()=>{ st.slides=[]; st.cur=0; st.sample=false; renderEditor(); };
 
 // ---------- inputs ----------
@@ -888,7 +946,7 @@ $('aiBtn').onclick = async ()=>{
   const S = $('aiStatus'); S.classList.remove('err');
   if(!sampleFn && !GEM.key){ $('setup').hidden = false; $('gkey0').focus(); S.textContent = ERR.nokey; S.classList.add('err'); return; }
   busy(true);
-  try { await runCopy(t=>S.textContent=t); S.textContent = '다 채웠어요. 아래에서 한 장씩 보면서 고치거나 대화 탭에 말해 주세요.'; }
+  try { await runCopy(t=>S.textContent=t); S.textContent = '다 채웠어요. 한 장씩 넘기며 고치거나 대화 탭에 말해 주세요.'; }
   catch(e){ if(isCancel(e)) S.textContent='멈췄어요.'; else { S.classList.add('err'); S.textContent = errText(e); } }
   finally { busy(false); }
 };
