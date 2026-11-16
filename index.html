@@ -222,7 +222,8 @@ body.p2{overflow:hidden;padding-bottom:0}
   .order{grid-template-columns:repeat(5,1fr)}
   .igPost{max-width:520px}
 }
-@media (max-width:480px){.wide{display:none}}
+.narrow{display:none}
+@media (max-width:480px){.wide{display:none}.narrow{display:inline}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -247,6 +248,7 @@ body.p2{overflow:hidden;padding-bottom:0}
   </section>
 
   <section class="panel" aria-label="정보 입력">
+    <div class="note row" id="curNote" hidden style="justify-content:space-between"><span id="curNoteTxt"></span><button type="button" class="sm" id="curNew">새 작업 시작</button></div>
     <div id="sampleNote" class="note" hidden>지금 보이는 건 예시예요(토스티데이즈 사진 6장, 문구는 예시로 쓴 것). 사진을 첨부하면 예시가 사라져요.</div>
     <div class="row">
       <label class="f">장소 이름<input type="text" id="place" placeholder="예: 토스티데이즈" autocomplete="off"></label>
@@ -269,8 +271,8 @@ body.p2{overflow:hidden;padding-bottom:0}
   </section>
 
   <section class="panel" id="projBox" aria-label="저장된 작업">
-    <div class="row" style="justify-content:space-between"><span class="lbl">저장된 작업</span><button type="button" class="sm" id="newProj">새로 만들기</button></div>
-    <div class="hint" id="projEmpty">아직 저장된 작업이 없어요. 사진을 넣으면 고칠 때마다 자동으로 저장돼요.</div>
+    <div class="row" style="justify-content:space-between"><span class="lbl">보관함 (저장된 작업)</span><button type="button" class="sm" id="newProj">새로 만들기</button></div>
+    <div class="hint" id="projEmpty">아직 보관된 작업이 없어요. 사진을 넣으면 고칠 때마다 자동으로 보관돼요. 다 만든 뒤 위 "🏠 저장하고 홈으로"를 누르면 여기 남고, 언제든 다시 열어 고칠 수 있어요.</div>
     <div class="projs" id="projList"></div>
   </section>
 </main>
@@ -278,13 +280,13 @@ body.p2{overflow:hidden;padding-bottom:0}
 <main id="page2" hidden>
   <div class="topbar">
     <nav class="steps" aria-label="페이지">
+      <button type="button" id="homeBtn" title="지금 작업을 저장하고 처음 화면으로">🏠<span class="wide"> 저장하고 홈으로</span><span class="narrow"> 저장·홈</span></button>
       <button type="button" data-go="1">① 정보</button>
-      <button type="button" data-go="2" aria-current="page">② 편집</button>
     </nav>
     <div class="row" style="gap:6px;flex-wrap:nowrap">
       <button type="button" class="sm" id="undoBtn" disabled aria-label="되돌리기" title="되돌리기 (Ctrl+Z)" style="min-width:40px">↶<span class="wide"> 되돌리기</span></button>
       <button type="button" class="sm" id="aiStop" hidden>멈추기</button>
-      <button type="button" class="primary sm" id="aiBtn">AI 문구 채우기</button>
+      <button type="button" class="primary sm" id="aiBtn">AI<span class="wide"> 문구</span> 채우기</button>
     </div>
   </div>
   <div class="prog" id="aiProg" hidden><div class="pbar" role="progressbar" aria-label="AI 문구 진행" aria-valuemin="0" aria-valuemax="100" id="aiBarBox"><i id="aiBar"></i></div><b id="aiPct">0%</b><span id="aiSec"></span></div>
@@ -897,7 +899,7 @@ $('toEditBtn').onclick = toEdit;
 function renderEditor(){
   const n = st.slides.length;
   $('countTxt').textContent = n ? `${n}장` : '';
-  $('fileLbl').textContent = n ? '사진 추가' : '사진 첨부하기';
+  $('fileLbl').textContent = n ? (st.pid ? '이 작업에 사진 추가' : '사진 추가') : '사진 첨부하기';
   $('files').setAttribute('aria-label', n ? '사진 추가' : '사진 첨부하기');
   $('toEditBtn').textContent = n ? `다음으로 (${n}장) ▶` : '사진 첨부하고 다음으로';
   document.querySelectorAll('.steps button[data-go="2"]').forEach(b=>b.disabled = !n);
@@ -1027,7 +1029,12 @@ $('files').addEventListener('change', async e=>{
 });
 // a tap on the page-1 photo button itself (not the bottom "next" button) should not jump pages
 $('files').addEventListener('click', e=>{ if(e.isTrusted) goNextAfterPick = false; });
-$('clearBtn').onclick = ()=>{ st.slides=[]; st.cur=0; st.sample=false; renderEditor(); };
+$('clearBtn').onclick = async ()=>{
+  // keep the saved project as it is; new photos start a separate project
+  await flushSave();
+  st.pid = null; LS.del('cm.pid');
+  st.slides=[]; st.cur=0; st.sample=false; renderEditor(); renderProjects(); undoReset();
+};
 
 // ---------- inputs ----------
 syncInputs();
@@ -1579,6 +1586,12 @@ function scheduleSave(){
   clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1000);
 }
 const hhmm = t => { const d = new Date(t); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+// wait for any running save, then write the latest state (used before switching projects)
+async function flushSave(){
+  for(let k=0; saving && k<200; k++) await new Promise(ok=>setTimeout(ok,50));
+  await saveNow();
+  for(let k=0; saving && k<200; k++) await new Promise(ok=>setTimeout(ok,50));
+}
 async function saveNow(){
   clearTimeout(saveTimer); saveTimer = null;
   if(loading || st.sample || !st.slides.length) return;
@@ -1604,7 +1617,7 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 window.addEventListener('pagehide',()=>{ if(saveTimer) saveNow(); });
 
 async function openProject(id){
-  if(saveTimer) await saveNow();
+  if(saveTimer || saving) await flushSave();
   const d = await DB.getData(id); if(!d) return false;
   loading = true;
   try {
@@ -1631,14 +1644,28 @@ async function openProject(id){
   return true;
 }
 async function newProject(){
-  if(saveTimer) await saveNow();
+  if(saveTimer || saving) await flushSave();
   st.pid = null; LS.del('cm.pid');
   st.place = ''; st.memo = ''; st.addr = ''; st.cover = { kicker:'', title:'', sub:'', hook:'' }; st.caption = ''; $('caption').value = '';
   st.slides = []; st.cur = 0; st.sample = false; RES = null; showResearch();
   syncInputs(); renderEditor(); renderProjects(); undoReset(); window.scrollTo(0,0); $('place').focus();
 }
 $('newProj').onclick = newProject;
+$('curNew').onclick = newProject;
+$('homeBtn').onclick = async ()=>{
+  const b = $('homeBtn'); b.disabled = true;
+  try {
+    const name = st.place.trim() || '이름 없는 작업', had = st.slides.length && !st.sample;
+    if(had) await flushSave();
+    try { if(history.state && history.state.cmPage===2) history.replaceState(null,''); } catch(e){}
+    goPage(1,false);
+    await newProject();
+    if(had) $('saveStatus').textContent = `「${name}」 저장했어요. 아래 저장된 작업에서 다시 열 수 있어요.`;
+  } finally { b.disabled = false; }
+};
 async function renderProjects(){
+  const cn = $('curNote'); cn.hidden = !(st.pid && st.slides.length && !st.sample);
+  if(!cn.hidden) $('curNoteTxt').textContent = `지금 고치는 작업: ${st.place.trim()||'이름 없는 작업'} · 지금 사진을 넣으면 이 작업에 더해져요. 다른 곳을 만들려면 "새 작업 시작"을 눌러 주세요.`;
   let list = [];
   try { list = await DB.list(); } catch(e){ $('projBox').hidden = true; return; }
   list.sort((a,b)=>b.updated-a.updated);
