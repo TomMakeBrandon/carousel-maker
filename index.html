@@ -87,6 +87,15 @@ details[open] summary::before{content:"－"}
 .sl input{flex:1;accent-color:#ff8fa8;min-width:0}
 .empty{padding:32px 16px;text-align:center;color:var(--muted);font-family:var(--label)}
 
+/* saved projects */
+.projs{display:flex;flex-direction:column;gap:10px}
+.proj{display:flex;gap:12px;align-items:center;padding:8px 10px;border:2px solid var(--line);border-radius:20px;background:var(--surface)}
+.proj.cur{border-color:#ff8fa8}
+.proj img{width:54px;height:68px;border-radius:12px;object-fit:cover;flex:0 0 auto;background:#000}
+.proj .meta{flex:1;min-width:0;display:flex;flex-direction:column}
+.proj .meta b{font-family:var(--label);font-weight:400;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proj .meta span{font-size:12px;color:var(--muted)}
+.proj .acts{display:flex;gap:6px;flex:0 0 auto}
 /* pages */
 .steps{display:flex;gap:6px}
 .steps button{min-height:36px;padding:4px 12px;font-size:14px;box-shadow:0 2px 0 var(--lift)}
@@ -184,6 +193,12 @@ body.p2{overflow:hidden;padding-bottom:0}
       <span class="status" id="countTxt"></span>
     </div>
     <div class="hint">사진은 고른 순서대로 들어가고, 첫 장이 표지예요. 순서는 다음 페이지에서 바꿀 수 있어요.</div>
+  </section>
+
+  <section class="panel" id="projBox" aria-label="저장된 작업">
+    <div class="row" style="justify-content:space-between"><span class="lbl">저장된 작업</span><button type="button" class="sm" id="newProj">새로 만들기</button></div>
+    <div class="hint" id="projEmpty">아직 저장된 작업이 없어요. 사진을 넣으면 고칠 때마다 자동으로 저장돼요.</div>
+    <div class="projs" id="projList"></div>
   </section>
 </main>
 
@@ -505,6 +520,7 @@ async function ensureFonts(){
 
 let rafPending = false;
 function scheduleRender(){
+  scheduleSave();
   if(rafPending) return; rafPending = true;
   requestAnimationFrame(async()=>{
     rafPending = false;
@@ -640,6 +656,8 @@ function goPage(p, push=true){
   page = p;
   $('page1').hidden = p!==1; $('page2').hidden = p!==2;
   document.body.classList.toggle('p2', p===2);
+  LS.set('cm.page', String(p));
+  if(p===1) renderProjects();
   $('toEditBtn').hidden = p!==1; $('saveBtn').hidden = p!==2; $('saveStatus').textContent = '';
   if(p===2){ if(push) try { history.pushState({cmPage:2},''); } catch(e){} renderEditor(); }
   window.scrollTo(0,0);
@@ -737,7 +755,7 @@ $('clearBtn').onclick = ()=>{ st.slides=[]; st.cur=0; st.sample=false; renderEdi
 // ---------- inputs ----------
 syncInputs();
 $('place').addEventListener('input',e=>{ st.place=e.target.value; scheduleRender(); });
-$('memo').addEventListener('input',e=>{ st.memo=e.target.value; });
+$('memo').addEventListener('input',e=>{ st.memo=e.target.value; scheduleSave(); });
 $('handle').addEventListener('input',e=>{ st.handle=e.target.value; LS.set('cm.handle',st.handle); scheduleRender(); });
 $('showHandle').addEventListener('change',e=>{ st.style.showHandle=e.target.checked; saveStyle(); scheduleRender(); });
 document.querySelectorAll('input[name=tpl]').forEach(r=>{
@@ -745,7 +763,7 @@ document.querySelectorAll('input[name=tpl]').forEach(r=>{
 });
 $('resetStyle').onclick = ()=>{ const keep = { showHandle: st.style.showHandle, tone: st.style.tone };
   st.style = { ...STYLE0(), ...keep }; saveStyle(); st.slides.forEach(s=>s.ov=null); styleScope='all'; renderEditor(); };
-$('caption').addEventListener('input',e=>st.caption=e.target.value);
+$('caption').addEventListener('input',e=>{ st.caption=e.target.value; scheduleSave(); });
 $('copyCap').onclick = async ()=>{
   const t = $('caption');
   try { await navigator.clipboard.writeText(t.value); $('copyCap').textContent='복사됨'; setTimeout(()=>$('copyCap').textContent='복사',1500); }
@@ -1129,7 +1147,7 @@ async function exportBlobs(){
   return out;
 }
 $('saveBtn').onclick = async ()=>{
-  const S = $('saveStatus'), b = $('saveBtn'); b.disabled = true; S.textContent='만드는 중…';
+  const S = $('saveStatus'), b = $('saveBtn'); b.disabled = true; S.textContent='만드는 중…'; S.dataset.busy = '1';
   try {
     const blobs = await exportBlobs(), base = safeName();
     const names = blobs.map((_,i)=>`${base}_${String(i+1).padStart(2,'0')}.jpg`);
@@ -1150,8 +1168,125 @@ $('saveBtn').onclick = async ()=>{
       }
     }
   } catch(e){ if(e?.name!=='AbortError') S.textContent = '저장하지 못했어요: ' + (e?.code||e?.message||'알 수 없는 오류'); else S.textContent=''; }
-  finally { b.disabled = !st.slides.length; }
+  finally { b.disabled = !st.slides.length; delete S.dataset.busy; }
 };
+
+// ---------- saved projects (IndexedDB on this phone) ----------
+const DB = {
+  db: null,
+  open(){
+    if(this.db) return Promise.resolve(this.db);
+    return new Promise((ok,no)=>{
+      if(!window.indexedDB) return no(new Error('no idb'));
+      const r = indexedDB.open('carousel-maker', 1);
+      r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('meta',{keyPath:'id'}); d.createObjectStore('data',{keyPath:'id'}); };
+      r.onsuccess = () => { this.db = r.result; ok(this.db); };
+      r.onerror = () => no(r.error);
+    });
+  },
+  async run(stores, mode, fn){
+    const db = await this.open();
+    return new Promise((ok,no)=>{
+      const t = db.transaction(stores, mode); const req = fn(t);
+      t.oncomplete = () => ok(req && 'result' in req ? req.result : undefined);
+      t.onerror = () => no(t.error); t.onabort = () => no(t.error);
+    });
+  },
+  put(meta, data){ return this.run(['meta','data'],'readwrite', t=>{ t.objectStore('meta').put(meta); t.objectStore('data').put(data); }); },
+  getData(id){ return this.run(['data'],'readonly', t=>t.objectStore('data').get(id)); },
+  list(){ return this.run(['meta'],'readonly', t=>t.objectStore('meta').getAll()); },
+  del(id){ return this.run(['meta','data'],'readwrite', t=>{ t.objectStore('meta').delete(id); t.objectStore('data').delete(id); }); }
+};
+st.pid = LS.get('cm.pid') || null;
+let saveTimer = null, saving = false, saveAgain = false, loading = false;
+function scheduleSave(){
+  if(loading || st.sample || !st.slides.length) return;
+  clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1000);
+}
+const hhmm = t => { const d = new Date(t); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+async function saveNow(){
+  clearTimeout(saveTimer); saveTimer = null;
+  if(loading || st.sample || !st.slides.length) return;
+  if(saving){ saveAgain = true; return; }
+  saving = true;
+  try {
+    if(!st.pid){ st.pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); LS.set('cm.pid', st.pid); }
+    for(const s of st.slides) if(!s.buf){
+      const b = await new Promise(ok=>s.img.toBlob(ok,'image/jpeg',.9)); s.buf = await b.arrayBuffer();
+    }
+    const tc = document.createElement('canvas'); tc.width = 108; tc.height = 135; drawSlide(tc, st.slides[0], 0);
+    const now = Date.now();
+    await DB.put(
+      { id: st.pid, name: st.place.trim() || '이름 없는 작업', updated: now, count: st.slides.length, thumb: tc.toDataURL('image/jpeg',.7) },
+      { id: st.pid, place: st.place, memo: st.memo, tpl: st.tpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES,
+        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
+    );
+    if(page===2 && !$('saveStatus').dataset.busy) $('saveStatus').textContent = `자동 저장 ${hhmm(now).split(' ')[1]}`;
+  } catch(e){ if(page===2) $('saveStatus').textContent = '자동 저장 실패'; }
+  finally { saving = false; if(saveAgain){ saveAgain = false; scheduleSave(); } }
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden' && saveTimer) saveNow(); });
+window.addEventListener('pagehide',()=>{ if(saveTimer) saveNow(); });
+
+async function openProject(id){
+  if(saveTimer) await saveNow();
+  const d = await DB.getData(id); if(!d) return false;
+  loading = true;
+  try {
+    const slides = [];
+    for(const x of d.slides||[]){
+      const url = URL.createObjectURL(new Blob([x.buf],{type:'image/jpeg'}));
+      try {
+        const s = newSlide(await shrink(await loadImg(url), 1800));
+        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf });
+        TEXT_KEYS.forEach(k=>s[k] = x[k] || ''); slides.push(s);
+      } finally { URL.revokeObjectURL(url); }
+    }
+    st.pid = id; LS.set('cm.pid', id);
+    st.place = d.place || ''; st.memo = d.memo || ''; st.tpl = d.tpl || st.tpl; LS.set('cm.tpl', st.tpl);
+    if(d.style){ const s0 = STYLE0(); st.style = { ...s0, ...d.style, roles:{ ...s0.roles, ...(d.style.roles||{}) } }; saveStyle(); }
+    st.cover = d.cover || { kicker:'', title:'', sub:'', hook:'' };
+    st.caption = d.caption || ''; $('caption').value = st.caption;
+    st.slides = slides; st.cur = Math.max(0, Math.min(d.cur||0, slides.length-1)); st.sample = false;
+    RES = d.res || null; showResearch();
+    styleScope = curSlide()?.ov ? 'one' : 'all';
+    syncInputs();
+  } finally { loading = false; }
+  renderEditor(); renderProjects();
+  return true;
+}
+async function newProject(){
+  if(saveTimer) await saveNow();
+  st.pid = null; LS.del('cm.pid');
+  st.place = ''; st.memo = ''; st.cover = { kicker:'', title:'', sub:'', hook:'' }; st.caption = ''; $('caption').value = '';
+  st.slides = []; st.cur = 0; st.sample = false; RES = null; showResearch();
+  syncInputs(); renderEditor(); renderProjects(); window.scrollTo(0,0); $('place').focus();
+}
+$('newProj').onclick = newProject;
+async function renderProjects(){
+  let list = [];
+  try { list = await DB.list(); } catch(e){ $('projBox').hidden = true; return; }
+  list.sort((a,b)=>b.updated-a.updated);
+  const L = $('projList'); L.textContent = '';
+  $('projEmpty').hidden = list.length > 0;
+  list.forEach(r=>{
+    const isCur = r.id === st.pid;
+    const del = el('button',{type:'button',class:'sm'},['삭제']);
+    del.onclick = async () => {
+      if(del.dataset.sure !== '1'){ del.dataset.sure = '1'; del.textContent = '정말 삭제?'; setTimeout(()=>{ del.dataset.sure=''; del.textContent='삭제'; }, 3000); return; }
+      await DB.del(r.id);
+      if(isCur){ st.pid = null; LS.del('cm.pid'); await newProject(); } else renderProjects();
+    };
+    const open = el('button',{type:'button',class:'sm primary'},[isCur ? '편집' : '열기']);
+    open.onclick = async () => { if(!isCur){ open.disabled = true; open.textContent = '여는 중…'; await openProject(r.id); } goPage(2); };
+    L.append(el('div',{class:'proj'+(isCur?' cur':'')},[
+      el('img',{src:r.thumb,alt:''}),
+      el('div',{class:'meta'},[el('b',{text:r.name}), el('span',{text:`${r.count}장 · ${hhmm(r.updated)}${isCur?' · 지금 작업 중':''}`})]),
+      el('div',{class:'acts'},[open, del])
+    ]));
+  });
+}
+try { navigator.storage?.persist?.(); } catch(e){}
 
 // ---------- start ----------
 (async()=>{
@@ -1163,8 +1298,13 @@ $('saveBtn').onclick = async ()=>{
       const s = newSlide(await loadImg(x.src)); Object.assign(s, x.t, { fy: x.fy ?? .5 }); st.slides.push(s);
     }
     syncInputs();
+  } else if(st.pid){
+    let ok = false;
+    try { ok = await openProject(st.pid); } catch(e){}
+    if(!ok){ st.pid = null; LS.del('cm.pid'); }
+    else if(LS.get('cm.page')==='2' && st.slides.length){ renderEditor(); goPage(2); return; }
   }
-  renderEditor();
+  renderEditor(); renderProjects();
 })();
 </script>
 </body>
