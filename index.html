@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>캐러셀 메이커</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="캐러셀">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#eef0ec">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=Montserrat:wght@500;700;800&family=Cormorant+Garamond:ital,wght@1,500&display=swap">
+<style>
+/* Layout: one narrow working column on phones (input → slide cards → sticky save bar), cards flow to 2–3 columns on wide screens. */
+:root{
+  --bg:#eef0ec; --surface:#ffffff; --ink:#1d221d; --muted:#626b62; --line:#d5d9d2;
+  --accent:#34503a; --accent-ink:#ffffff; --warn:#a2452c;
+  --ui:"Noto Sans KR","Apple SD Gothic Neo",system-ui,sans-serif;
+  --label:Montserrat,"Noto Sans KR",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#151815; --surface:#1f231f; --ink:#e7ebe5; --muted:#9aa398; --line:#353b34;
+  --accent:#9cc3a2; --accent-ink:#112014; --warn:#e2876c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151815; --surface:#1f231f; --ink:#e7ebe5; --muted:#9aa398; --line:#353b34;
+  --accent:#9cc3a2; --accent-ink:#112014; --warn:#e2876c; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:120px}
+[hidden]{display:none!important}
+img{max-width:100%}
+.wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--label);font-weight:800;font-size:22px;letter-spacing:.02em;margin:0;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1 1 160px;min-width:0}
+input[type=text],input[type=password],textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
+textarea{resize:vertical;min-height:44px}
+input:focus-visible,textarea:focus-visible,button:focus-visible,.chip:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+button{font:inherit;font-weight:600;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 14px;cursor:pointer;min-height:42px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button.sm{min-height:34px;padding:5px 10px;font-size:13px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{position:relative;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;cursor:pointer;background:var(--bg)}
+.chip input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.chip:has(input:checked){background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.lbl{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.status{font-size:13px;color:var(--muted);min-height:1.2em}
+.status.err{color:var(--warn)}
+.note{font-size:13px;background:var(--bg);border-radius:10px;padding:10px 12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.card canvas{width:100%;height:auto;aspect-ratio:4/5;display:block;background:#000;max-width:100%}
+.card .body{padding:12px;display:flex;flex-direction:column;gap:10px}
+.card .top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tag{font-family:var(--label);font-weight:800;font-size:13px}
+.sl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.sl input{flex:1;accent-color:var(--accent)}
+.empty{border:1.5px dashed var(--line);border-radius:14px;padding:32px 16px;text-align:center;color:var(--muted)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);z-index:5;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.bar .in{max-width:1100px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.bar .in button{flex:1}
+details summary{cursor:pointer;font-weight:600}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>CAROUSEL MAKER</h1>
+    <p>장소 이름과 사진만 넣으면 인스타 캐러셀(1080×1350)로 저장해요.</p>
+  </header>
+
+  <section class="panel" id="setup" aria-label="처음 설정" hidden>
+    <span class="lbl">처음 한 번만</span>
+    <div>AI 문구를 쓰려면 Gemini API 키가 필요해요. 키는 이 폰에만 저장돼요.</div>
+    <label class="f">Gemini API 키<input type="password" id="gkey0" autocomplete="off" placeholder="AIza…"></label>
+    <div class="row"><button type="button" class="primary" id="setupOk">저장</button></div>
+  </section>
+
+  <section class="panel" aria-label="입력">
+    <div id="sampleNote" class="note" hidden>지금 보이는 건 예시예요(토스티데이즈 사진 6장, 문구는 예시로 쓴 것). 사진을 고르면 예시가 사라져요.</div>
+    <div class="row">
+      <label class="f">장소 이름<input type="text" id="place" placeholder="예: 토스티데이즈" autocomplete="off"></label>
+      <label class="f">계정 핸들<input type="text" id="handle" placeholder="@my.account" autocomplete="off"></label>
+    </div>
+    <div class="row">
+      <span class="filebtn"><button class="primary" type="button" tabindex="-1">사진 고르기</button><input type="file" id="files" accept="image/*" multiple aria-label="사진 고르기"></span>
+      <button type="button" id="clearBtn">사진 모두 지우기</button>
+      <span class="status" id="countTxt"></span>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:6px">템플릿</div>
+      <div class="chips" id="tplChips">
+        <label class="chip"><input type="radio" name="tpl" value="yoon" checked>번호형</label>
+        <label class="chip"><input type="radio" name="tpl" value="tomato">코스형</label>
+        <label class="chip"><input type="radio" name="tpl" value="deon">감성형</label>
+      </div>
+    </div>
+    <div class="row">
+      <button type="button" class="primary" id="aiBtn">AI로 문구 채우기</button>
+      <button type="button" id="aiStop" hidden>멈추기</button>
+      <span class="status" id="aiStatus"></span>
+    </div>
+    <details id="settings">
+      <summary>설정</summary>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+        <div class="status" id="modeTxt"></div>
+        <div id="geminiBox" class="row" hidden>
+          <label class="f">Gemini API 키 (이 기기에만 저장)<input type="password" id="gkey" autocomplete="off"></label>
+          <label class="f">모델 이름<input type="text" id="gmodel" autocomplete="off"></label>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section aria-label="슬라이드">
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden>사진을 고르면 여기 슬라이드가 생겨요. 첫 장이 표지예요.</div>
+  </section>
+
+  <section class="panel" aria-label="캡션">
+    <div class="top row" style="justify-content:space-between"><span class="lbl">게시물 캡션</span><button type="button" class="sm" id="copyCap">복사</button></div>
+    <textarea id="caption" rows="5" placeholder="AI로 문구를 채우면 캡션도 같이 써요."></textarea>
+  </section>
+</div>
+
+<div class="bar"><div class="in">
+  <span class="status" id="saveStatus" style="flex:0 1 auto"></span>
+  <button type="button" class="primary" id="saveBtn">저장</button>
+</div></div>
+
+<script>
+const SAMPLE = null; //@@SAMPLE@@
+const W = 1080, H = 1350;
+const F = {
+  ko: '"Noto Sans KR","Apple SD Gothic Neo",sans-serif',
+  en: 'Montserrat,"Noto Sans KR",sans-serif',
+  sc: '"Cormorant Garamond",Georgia,serif'
+};
+const LS = {
+  get(k){ try { return localStorage.getItem(k) } catch(e){ return null } },
+  set(k,v){ try { localStorage.setItem(k,v) } catch(e){} }
+};
+const $ = id => document.getElementById(id);
+
+const st = {
+  place: '', handle: LS.get('cm.handle') || '', tpl: LS.get('cm.tpl') || 'yoon',
+  cover: { kicker:'', title:'', sub:'', hook:'' },
+  slides: [], caption: '', sample: false
+};
+let uid = 0;
+const newSlide = img => ({ id: ++uid, img, fx: .5, fy: .5, zoom: 1,
+  en_title:'', en_sub:'', ko_title:'', ko1:'', ko2:'' });
+
+// ---------- fields per template ----------
+const FIELDS = {
+  cover: {
+    yoon:   [['kicker','윗줄'],['title','장소 이름(큰 글씨)'],['sub','아랫줄 설명']],
+    tomato: [['kicker','윗줄'],['hook','제목 (두 줄은 줄바꿈)',1],['sub','부제 ( | 뒤 문구)']],
+    deon:   [['hook','제목 (두 줄은 줄바꿈)',1]]
+  },
+  inner: {
+    yoon:   [['en_title','영문 제목'],['en_sub','영문 소제목'],['ko1','한글 1줄'],['ko2','한글 2줄']],
+    tomato: [['ko_title','제목 (두 줄은 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
+    deon:   [['ko_title','제목 (두 줄은 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']]
+  }
+};
+
+// ---------- drawing ----------
+const handleTxt = () => { const h = (st.handle||'').trim().replace(/^@+/,''); return h ? '@'+h : '' };
+function shadow(ctx,on){ ctx.shadowColor = on ? 'rgba(0,0,0,.38)' : 'transparent'; ctx.shadowBlur = on ? 14 : 0; ctx.shadowOffsetY = on ? 1 : 0; }
+function drawPhoto(ctx,s){
+  const im = s.img, iw = im.width, ih = im.height;
+  const sc = Math.max(W/iw, H/ih) * s.zoom, dw = iw*sc, dh = ih*sc;
+  ctx.drawImage(im, -(dw-W)*s.fx, -(dh-H)*s.fy, dw, dh);
+}
+function grad(ctx,from,a){
+  const g = ctx.createLinearGradient(0,H*from,0,H);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.55,`rgba(0,0,0,${a*.6})`); g.addColorStop(1,`rgba(0,0,0,${a})`);
+  ctx.fillStyle = g; ctx.fillRect(0,H*from,W,H*(1-from)+1);
+}
+function txt(ctx,str,x,y,o){
+  if(!str) return 0;
+  let s = o.size; const fam = o.fam||F.ko, w = o.weight||400, maxW = o.maxW||W-144;
+  const set = () => { ctx.font = `${o.italic?'italic ':''}${w} ${s}px ${fam}`; if('letterSpacing' in ctx) ctx.letterSpacing = (o.ls||0)+'px'; };
+  set(); while(ctx.measureText(str).width > maxW && s > 12){ s -= 2; set(); }
+  ctx.textAlign = o.align||'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = o.color||'#fff'; ctx.fillText(str,x,y);
+  const wd = ctx.measureText(str).width; if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  return wd;
+}
+const lines = (v,fb) => (v||fb||'').split('\n').map(t=>t.trim()).filter(Boolean).slice(0,2);
+const W90 = 'rgba(255,255,255,.9)', W80 = 'rgba(255,255,255,.8)';
+const SPARK = ' ˚₊‧';
+
+const DRAW = {
+  yoon(ctx,s,i,c){
+    if(i===0){
+      grad(ctx,.45,.62); shadow(ctx,true);
+      txt(ctx,c.kicker,72,1010,{size:28,color:W90});
+      txt(ctx,(c.title||st.place).replace(/\n/g,' '),72,1094,{size:76,weight:700});
+      txt(ctx,c.sub,72,1150,{size:26,color:W80});
+    } else {
+      grad(ctx,.5,.6);
+      shadow(ctx,false); ctx.fillStyle='#fff'; ctx.fillRect(72,872,88,88);
+      txt(ctx,String(i).padStart(2,'0'),116,932,{size:44,weight:800,fam:F.en,color:'#111',align:'center'});
+      shadow(ctx,true);
+      txt(ctx,(s.en_title||'').toUpperCase(),72,1038,{size:50,weight:800,fam:F.en,ls:1});
+      txt(ctx,(s.en_sub||'').toUpperCase(),74,1092,{size:27,weight:500,fam:F.en,color:W90,ls:1});
+      txt(ctx,s.ko1,74,1156,{size:28,color:W90});
+      txt(ctx,s.ko2,74,1198,{size:28,color:W90});
+    }
+    txt(ctx,handleTxt(),W/2,1312,{size:22,weight:500,fam:F.en,color:W80,align:'center'});
+  },
+  tomato(ctx,s,i,c){
+    shadow(ctx,true);
+    txt(ctx,handleTxt(),W/2,52,{size:22,weight:500,fam:F.en,color:W80,align:'center'});
+    grad(ctx,.42,.72); shadow(ctx,true);
+    if(i===0){
+      const L = lines(c.hook, c.title||st.place), last = 1214, lh = 82;
+      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:66,weight:800}));
+      txt(ctx,c.kicker,74,last-(L.length-1)*lh-84,{size:27,weight:500,color:W90});
+      if(c.sub) txt(ctx,'|  '+c.sub,74,1284,{size:24,weight:500,color:W90});
+    } else {
+      const L = lines(s.ko_title), last = 1196, lh = 68;
+      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:54,weight:800}));
+      const d = [s.ko1,s.ko2].filter(Boolean).join(' ');
+      if(d) txt(ctx,'|  '+d,74,1270,{size:24,weight:500,color:W90});
+    }
+  },
+  deon(ctx,s,i,c){
+    grad(ctx,.36,.72); shadow(ctx,true);
+    const L = i===0 ? lines(c.hook, c.title||st.place) : lines(s.ko_title);
+    const last = i===0 ? 1150 : 1090, lh = 70;
+    L.forEach((t,k)=>{
+      const y = last-(L.length-1-k)*lh;
+      const w = txt(ctx,t,72,y,{size:52,weight:700,maxW:W-220});
+      if(k===L.length-1) txt(ctx,SPARK,72+w+4,y-6,{size:30,weight:500,color:W90});
+    });
+    const top = last-(L.length-1)*lh;
+    txt(ctx,handleTxt(),72,top-66,{size:34,weight:500,fam:F.sc,italic:true,color:W90});
+    if(i>0){
+      txt(ctx,s.ko1,74,last+60,{size:27,color:W90});
+      txt(ctx,s.ko2,74,last+100,{size:27,color:W90});
+    }
+    txt(ctx,handleTxt(),W/2,1322,{size:18,weight:700,fam:F.en,color:W80,align:'center'});
+  }
+};
+
+function drawSlide(cv,s,i){
+  const ctx = cv.getContext('2d');
+  ctx.save(); shadow(ctx,false); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  drawPhoto(ctx,s);
+  DRAW[st.tpl](ctx,s,i,st.cover);
+  ctx.restore();
+}
+
+// fonts: Google splits Korean faces by unicode range, so load with the real text
+let fontKey = '';
+async function ensureFonts(){
+  const all = [st.place, st.handle, SPARK, '0123456789|@', ...Object.values(st.cover),
+    ...st.slides.flatMap(s=>[s.en_title,s.en_sub,s.ko_title,s.ko1,s.ko2])].join('');
+  const uniq = [...new Set(all + all.toUpperCase())].join('');
+  if(uniq === fontKey) return; fontKey = uniq;
+  const specs = ['400 30px "Noto Sans KR"','500 30px "Noto Sans KR"','700 30px "Noto Sans KR"','800 30px "Noto Sans KR"',
+    '500 30px Montserrat','700 30px Montserrat','800 30px Montserrat','italic 500 30px "Cormorant Garamond"'];
+  try { await Promise.all(specs.map(sp=>document.fonts.load(sp, uniq))); } catch(e){}
+}
+
+let rafPending = false;
+function scheduleRender(){
+  if(rafPending) return; rafPending = true;
+  requestAnimationFrame(async()=>{
+    rafPending = false;
+    await ensureFonts();
+    st.slides.forEach((s,i)=>{ const cv = document.querySelector(`canvas[data-id="${s.id}"]`); if(cv) drawSlide(cv,s,i); });
+  });
+}
+
+// ---------- slide list UI ----------
+function el(tag,attrs={},kids=[]){
+  const e = document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){ if(k==='text') e.textContent=v; else if(k.startsWith('on')) e.addEventListener(k.slice(2),v); else e.setAttribute(k,v); }
+  kids.forEach(k=>k&&e.append(k)); return e;
+}
+function field(obj,key,label,multi,idp){
+  const id = `${idp}-${key}`;
+  const inp = multi ? el('textarea',{id,rows:'2'}) : el('input',{id,type:'text',autocomplete:'off'});
+  inp.value = obj[key]||'';
+  inp.addEventListener('input',()=>{ obj[key]=inp.value; scheduleRender(); });
+  return el('label',{class:'f'},[document.createTextNode(label),inp]);
+}
+function slider(s,key,label,min,max,step){
+  const id = `sl-${s.id}-${key}`;
+  const r = el('input',{type:'range',id,min,max,step}); r.value = s[key];
+  r.addEventListener('input',()=>{ s[key]=+r.value; scheduleRender(); });
+  return el('label',{class:'sl',for:id},[document.createTextNode(label),r]);
+}
+function move(i,to){
+  if(to<0||to>=st.slides.length) return;
+  const [s] = st.slides.splice(i,1); st.slides.splice(to,0,s); renderList();
+}
+function renderList(){
+  const g = $('grid'); g.textContent = '';
+  st.slides.forEach((s,i)=>{
+    const cv = el('canvas',{width:W,height:H,'data-id':s.id,'aria-label':`${i+1}번 슬라이드 미리보기`});
+    const fs = i===0 ? FIELDS.cover[st.tpl].map(([k,l,m])=>field(st.cover,k,l,m,'cv'))
+                     : FIELDS.inner[st.tpl].map(([k,l,m])=>field(s,k,l,m,'s'+s.id));
+    const ctrls = el('div',{class:'row'},[
+      el('button',{type:'button',class:'sm','aria-label':'앞으로',onclick:()=>move(i,i-1)},[document.createTextNode('◀')]),
+      el('button',{type:'button',class:'sm','aria-label':'뒤로',onclick:()=>move(i,i+1)},[document.createTextNode('▶')]),
+      i>0 ? el('button',{type:'button',class:'sm',onclick:()=>move(i,0)},[document.createTextNode('표지로')]) : null,
+      el('button',{type:'button',class:'sm',onclick:()=>{ st.slides.splice(i,1); renderList(); }},[document.createTextNode('삭제')])
+    ]);
+    g.append(el('article',{class:'card'},[cv, el('div',{class:'body'},[
+      el('div',{class:'top'},[el('span',{class:'tag',text: i===0 ? '표지' : String(i).padStart(2,'0')}), ctrls]),
+      slider(s,'fy','위↔아래',0,1,.01), slider(s,'fx','좌↔우',0,1,.01), slider(s,'zoom','확대',1,2.5,.01),
+      ...fs
+    ])]));
+  });
+  $('empty').hidden = st.slides.length>0;
+  $('countTxt').textContent = st.slides.length ? `${st.slides.length}장` : '';
+  $('saveBtn').textContent = st.slides.length ? `${st.slides.length}장 저장` : '저장';
+  $('saveBtn').disabled = !st.slides.length;
+  $('sampleNote').hidden = !st.sample;
+  fontKey = ''; scheduleRender();
+}
+
+// ---------- photos ----------
+function loadImg(src){ return new Promise((ok,no)=>{ const im = new Image(); im.onload=()=>ok(im); im.onerror=no; im.src=src; }); }
+async function shrink(im,max){
+  const sc = Math.min(1, max/Math.max(im.naturalWidth||im.width, im.naturalHeight||im.height));
+  const c = document.createElement('canvas'); c.width = Math.round((im.naturalWidth||im.width)*sc); c.height = Math.round((im.naturalHeight||im.height)*sc);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height); return c;
+}
+$('files').addEventListener('change', async e=>{
+  const list = [...e.target.files]; e.target.value = '';
+  if(!list.length) return;
+  if(st.sample){ st.sample=false; st.slides=[]; st.cover={kicker:'',title:'',sub:'',hook:''}; st.caption=''; $('caption').value=''; st.place=''; $('place').value=''; }
+  $('countTxt').textContent = '불러오는 중…';
+  for(const f of list){
+    const url = URL.createObjectURL(f);
+    try { const im = await loadImg(url); st.slides.push(newSlide(await shrink(im,1800))); }
+    catch(err){ $('aiStatus').textContent = `${f.name}을(를) 열지 못했어요.`; }
+    finally { URL.revokeObjectURL(url); }
+  }
+  renderList();
+});
+$('clearBtn').onclick = ()=>{ st.slides=[]; st.sample=false; renderList(); };
+
+// ---------- inputs ----------
+$('place').addEventListener('input',e=>{ st.place=e.target.value; scheduleRender(); });
+$('handle').value = st.handle;
+$('handle').addEventListener('input',e=>{ st.handle=e.target.value; LS.set('cm.handle',st.handle); scheduleRender(); });
+document.querySelectorAll('input[name=tpl]').forEach(r=>{
+  r.checked = r.value===st.tpl;
+  r.addEventListener('change',()=>{ st.tpl=r.value; LS.set('cm.tpl',st.tpl); renderList(); });
+});
+$('caption').addEventListener('input',e=>st.caption=e.target.value);
+$('copyCap').onclick = async ()=>{
+  const t = $('caption');
+  try { await navigator.clipboard.writeText(t.value); $('copyCap').textContent='복사됨'; setTimeout(()=>$('copyCap').textContent='복사',1500); }
+  catch(e){ t.focus(); t.select(); }
+};
+
+// ---------- AI ----------
+let sampleFn = null, dl = null, aiCtl = null;
+const GEM = { key: LS.get('cm.gkey')||'', model: LS.get('cm.gmodel')||'gemini-3.8-flash' };
+$('gkey').value = GEM.key; $('gmodel').value = GEM.model;
+$('gkey').addEventListener('input',e=>{ GEM.key=e.target.value.trim(); LS.set('cm.gkey',GEM.key); });
+$('gmodel').addEventListener('input',e=>{ GEM.model=e.target.value.trim(); LS.set('cm.gmodel',GEM.model); });
+
+function setMode(){
+  if(sampleFn){ $('modeTxt').textContent = '테스트 모드: 문구는 Claude가 써요(키 필요 없음).'; $('geminiBox').hidden = true; $('setup').hidden = true; }
+  else { $('modeTxt').textContent = '문구는 Gemini API로 써요. 키는 이 기기 브라우저에만 저장돼요.'; $('geminiBox').hidden = false; $('setup').hidden = !!GEM.key; }
+}
+$('setupOk').onclick = ()=>{
+  const v = $('gkey0').value.trim(); if(!v){ $('gkey0').focus(); return; }
+  GEM.key = v; LS.set('cm.gkey',v); $('gkey').value = v; $('setup').hidden = true;
+};
+setMode();
+if(window.claude && claude.use){
+  claude.use('sample').then(f=>{ sampleFn=f; setMode(); });
+  claude.use('downloads').then(d=>{ dl=d; });
+}
+
+function buildPrompt(n,seen){
+  return `너는 인스타그램 카페·장소 캐러셀의 문구를 쓴다.
+장소 이름: ${st.place||'(이름 없음)'}
+사진 ${n}장 중 ${seen}장이 순서대로 첨부돼 있다. 1번은 표지, 2번부터는 본문 슬라이드다.${seen<n?' 첨부되지 않은 사진은 장소 분위기에 맞게 일반적으로 쓴다.':''}
+
+규칙
+- 사진에 실제로 보이는 것만 쓴다. 메뉴 이름을 확실히 알 수 없으면 '디저트', '라떼'처럼 일반 이름으로 쓴다.
+- 가격·주소·영업시간·과장 표현은 쓰지 않는다. 이모지 없음.
+- 말투는 담백한 감성. 한국어 문구는 짧은 명사형이나 '~하기', '~곳'으로 끝낸다.
+- en_title은 영어 대문자 2~3단어(예: A LITTLE BREAK), en_sub는 영어 대문자 1~3단어(예: SPACE & OBJECTS).
+- ko1, ko2는 각각 16자 이내, 둘이 이어져 한 문장처럼 읽히게.
+- ko_title은 한 줄 또는 두 줄(줄바꿈 \\n), 각 줄 14자 이내.
+- cover.hook은 저장하고 싶게 만드는 두 줄 제목(줄바꿈 \\n, 각 줄 12자 이내).
+- caption은 3~5문장의 게시물 캡션 + 빈 줄 + 해시태그 5개.
+
+아래 JSON 하나만 답한다. slides는 정확히 ${n-1}개.
+{"cover":{"kicker":"14자 이내","title":"${st.place||'장소 이름'}","sub":"20자 이내","hook":"줄1\\n줄2"},
+ "slides":[{"en_title":"","en_sub":"","ko_title":"","ko1":"","ko2":""}],
+ "caption":""}`;
+}
+function blobOf(c,max=1024){
+  const sc = Math.min(1,max/Math.max(c.width,c.height));
+  const t = document.createElement('canvas'); t.width=Math.round(c.width*sc); t.height=Math.round(c.height*sc);
+  t.getContext('2d').drawImage(c,0,0,t.width,t.height);
+  return new Promise(ok=>t.toBlob(ok,'image/jpeg',.8));
+}
+const b64 = blob => new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(',')[1]); r.readAsDataURL(blob); });
+
+async function askClaude(n){
+  let max = n;
+  try { const lim = await sampleFn.limits(); max = lim.images ? Math.min(n, lim.images.maxCount) : 0; } catch(e){ max = 0; }
+  const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img)));
+  aiCtl = new AbortController();
+  return sampleFn.json(buildPrompt(n,max), { images: max?imgs:undefined, signal: aiCtl.signal, cache:false });
+}
+async function askGemini(n){
+  if(!GEM.key) throw { code:'nokey' };
+  const parts = [{ text: buildPrompt(n,n) }];
+  for(const s of st.slides) parts.push({ inline_data:{ mime_type:'image/jpeg', data: await b64(await blobOf(s.img)) } });
+  aiCtl = new AbortController();
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEM.model)}:generateContent`,{
+    method:'POST', signal: aiCtl.signal,
+    headers:{ 'Content-Type':'application/json', 'x-goog-api-key': GEM.key },
+    body: JSON.stringify({ contents:[{ role:'user', parts }], generationConfig:{ responseMimeType:'application/json', temperature:.8 } })
+  });
+  const j = await r.json().catch(()=>({}));
+  if(r.status===404) throw { code:'gemini', message:`모델 "${GEM.model}"을 찾지 못했어요. 설정에서 모델 이름을 확인해 주세요.` };
+  if(r.status===400 || r.status===403) throw { code:'gemini', message:'API 키를 확인해 주세요. (' + (j.error?.message||r.status) + ')' };
+  if(!r.ok) throw { code:'gemini', message: j.error?.message || `HTTP ${r.status}` };
+  const t = j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+  const m = t.match(/\{[\s\S]*\}/); if(!m) throw { code:'invalid_json' };
+  return JSON.parse(m[0]);
+}
+const ERR = {
+  not_granted:'Claude 사용을 허용하지 않아서 문구를 만들 수 없어요.', rate_limited:'요청이 많아요. 잠시 뒤 다시 눌러 주세요.',
+  invalid_json:'답을 읽지 못했어요. 한 번 더 눌러 주세요.', nokey:'설정에서 Gemini API 키를 넣어 주세요.',
+  image_rejected:'사진 중 보낼 수 없는 파일이 있어요.', sampling_disabled:'이 계정에서는 Claude 호출을 쓸 수 없어요.'
+};
+$('aiBtn').onclick = async ()=>{
+  const n = st.slides.length, S = $('aiStatus');
+  if(!n){ S.textContent='사진을 먼저 골라 주세요.'; S.classList.add('err'); return; }
+  if(!st.place.trim()){ S.textContent='장소 이름을 먼저 넣어 주세요.'; S.classList.add('err'); $('place').focus(); return; }
+  S.classList.remove('err'); S.textContent = '사진 보고 문구 쓰는 중… (30초~1분)';
+  $('aiBtn').disabled = true; $('aiStop').hidden = false;
+  if(!sampleFn && !GEM.key){ $('settings').open = true; }
+  try {
+    const out = sampleFn ? await askClaude(n) : await askGemini(n);
+    const c = out.cover||{};
+    st.cover = { kicker:c.kicker||'', title:c.title||st.place, sub:c.sub||'', hook:c.hook||'' };
+    (out.slides||[]).forEach((x,k)=>{ const s = st.slides[k+1]; if(!s) return;
+      for(const key of ['en_title','en_sub','ko_title','ko1','ko2']) s[key] = String(x[key]||''); });
+    st.caption = out.caption||''; $('caption').value = st.caption;
+    renderList(); S.textContent = '다 채웠어요. 고칠 곳은 바로 고치면 돼요.';
+  } catch(e){
+    if(e && (e.code==='cancelled' || e.name==='AbortError')) S.textContent='멈췄어요.';
+    else { S.classList.add('err'); S.textContent = ERR[e?.code] || (e?.message ? `실패: ${e.message}` : '문구를 만들지 못했어요. 다시 눌러 주세요.'); }
+  } finally { $('aiBtn').disabled=false; $('aiStop').hidden=true; }
+};
+$('aiStop').onclick = ()=>aiCtl?.abort();
+
+// ---------- save ----------
+const safeName = () => (st.place||'carousel').trim().replace(/[\\/:*?"<>|\s]+/g,'_');
+async function exportBlobs(){
+  await ensureFonts();
+  const out = [];
+  for(const [i,s] of st.slides.entries()){
+    const c = document.createElement('canvas'); c.width=W; c.height=H; drawSlide(c,s,i);
+    out.push(await new Promise(ok=>c.toBlob(ok,'image/jpeg',.92)));
+  }
+  return out;
+}
+$('saveBtn').onclick = async ()=>{
+  const S = $('saveStatus'), b = $('saveBtn'); b.disabled = true; S.textContent='만드는 중…';
+  try {
+    const blobs = await exportBlobs(), base = safeName();
+    const names = blobs.map((_,i)=>`${base}_${String(i+1).padStart(2,'0')}.jpg`);
+    if(dl){
+      for(let i=0;i<blobs.length;i++){
+        S.textContent = `${i+1}/${blobs.length}장 저장`;
+        try { await dl.save({ filename:names[i], data:blobs[i] }); }
+        catch(e){ if(e?.code==='declined'){ S.textContent=`${i}장 저장하고 멈췄어요.`; return; } throw e; }
+      }
+      S.textContent = `${blobs.length}장 저장했어요.`;
+    } else {
+      const files = blobs.map((bl,i)=>new File([bl],names[i],{type:'image/jpeg'}));
+      if(navigator.canShare && navigator.canShare({files})){
+        await navigator.share({ files }); S.textContent = '공유 시트에서 "이미지 저장"을 누르세요.';
+      } else {
+        files.forEach(f=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); });
+        S.textContent = `${files.length}장 내려받았어요.`;
+      }
+    }
+  } catch(e){ if(e?.name!=='AbortError') S.textContent = '저장하지 못했어요: ' + (e?.code||e?.message||'알 수 없는 오류'); else S.textContent=''; }
+  finally { b.disabled = !st.slides.length; }
+};
+
+// ---------- start ----------
+(async()=>{
+  if(SAMPLE){
+    st.sample = true; st.place = SAMPLE.place; $('place').value = st.place;
+    if(!st.handle){ st.handle = 'my.account'; $('handle').value = st.handle; }
+    st.cover = SAMPLE.cover; st.caption = SAMPLE.caption; $('caption').value = st.caption;
+    for(const x of SAMPLE.slides){
+      const s = newSlide(await loadImg(x.src)); Object.assign(s, x.t, { fy: x.fy ?? .5 }); st.slides.push(s);
+    }
+  }
+  renderList();
+})();
+</script>
+
+</body>
+</html>
