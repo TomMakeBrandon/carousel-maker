@@ -505,7 +505,9 @@ function RS(role){
 }
 const sz = r => RS(r).size;
 // address on inner slides: the slide's own address, else the default address; off unless showAddr
-const addrTxt = (s,pre='') => { if(!st.style.showAddr) return ''; const a = ((s && s.addr) || st.addr || '').trim(); return a ? pre + a : ''; };
+const addrMode = s => s ? (s.addrMode || (s.addr && s.addr.trim() ? 'own' : 'all')) : 'all';
+const addrTxt = (s,pre='') => { if(!st.style.showAddr) return ''; const m = addrMode(s); if(m==='none') return '';
+  const a = (m==='own' ? (s.addr||'') : (st.addr||'')).trim(); return a ? pre + a : ''; };
 const handleTxt = () => { if(!st.style.showHandle) return ''; const h = (st.handle||'').trim().replace(/^@+/,''); return h ? '@'+h : '' };
 function lum(hex){ const m = /^#?([0-9a-f]{6})$/i.exec(hex||''); if(!m) return 1; const n = parseInt(m[1],16); return (0.299*(n>>16) + 0.587*((n>>8)&255) + 0.114*(n&255))/255; }
 // lv: shadow strength (0 = none, 1 = default soft shadow, up to 3 = heavy)
@@ -922,8 +924,20 @@ function renderEditor(){
     cb.onchange = () => { st.style.showAddr = cb.checked; saveStyle(); syncInputs(); renderEditor(); };
     P.append(el('div',{class:'row',style:'justify-content:space-between'},[el('span',{class:'lbl',text:'주소 (번호 옆)'}), el('label',{class:'chip'},[cb,'주소 넣기'])]));
     if(st.style.showAddr){
-      const f = field(s,'addr',`이 장 주소 (비우면 기본 주소: ${st.addr.trim()||'없음'})`,false,'s'+s.id);
-      P.append(f, el('div',{class:'hint',text:'기본 주소는 ① 정보 페이지에서 넣어요. 장마다 다른 곳이면 여기에 따로 적어 주세요. 글씨는 글씨 탭 "주소"에서 바꿔요.'}));
+      const mode = addrMode(s), chips = el('div',{class:'chips'});
+      [['all','모든 장 같은 주소'],['own','이 장만 다른 주소'],['none','이 장은 빼기']].forEach(([v,l])=>{
+        const r = el('input',{type:'radio',name:'addrMode',value:v}); r.checked = mode===v;
+        r.onchange = () => { s.addrMode = v; renderEditor(); };
+        chips.append(el('label',{class:'chip'},[r,l]));
+      });
+      P.append(chips);
+      if(mode==='own') P.append(field(s,'addr','이 장 주소',false,'s'+s.id));
+      else if(mode==='all'){
+        const f = field(st,'addr','모든 장 주소 (고치면 "모든 장 같은 주소"인 장이 다 바뀌어요)',false,'all');
+        f.querySelector('input').addEventListener('input',()=>{ $('addr').value = st.addr; });
+        P.append(f);
+      } else P.append(el('div',{class:'hint',text:'이 장에는 주소가 안 들어가요.'}));
+      P.append(el('div',{class:'hint',text:'글씨 모양·높이는 글씨 탭 "주소"에서 바꿔요.'}));
     }
   }
   // 사진
@@ -1373,7 +1387,7 @@ font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 - style.roles: 모든 장에 적용. 예: {"t":{"color":"#ffe58a"}}
 - slideRoles: 특정 장만 다르게. [{"i":장 번호(0=표지, 1부터 본문), "roles":{"t":{"color":"#111111"}}}]. "이 장", "지금 장"은 currentSlide. 그 장의 따로 설정을 없애려면 "roles":null
 - style.showHandle: 핸들(@계정) 표시 true/false
-- style.showAddr: 본문 장 번호 옆 주소 표시 true/false. addr: 기본 주소 문자열. 장마다 다른 주소는 slides의 addr 필드
+- style.showAddr: 본문 장 번호 옆 주소 표시 true/false. addr: 기본 주소 문자열. 장마다 다른 주소는 slides의 addr 필드, 특정 장만 주소를 빼려면 slides에 addrMode:"none", 기본 주소로 되돌리려면 addrMode:"all"
 - style.textY: 글씨 묶음 세로 위치(px, 이미지 높이 1350). 음수=위로. -300~150 (조금=40, 많이=100씩)
 - style.shade: 사진 아래쪽 어둡게 하는 정도 0.3~1.6 (기본 1)
 - style.coverScale: 표지(썸네일) 제목만 키우는 배수 0.8~2.2 (기본 1.45, 조금=0.15, 많이=0.3씩)
@@ -1433,7 +1447,7 @@ function applyPatch(p){
   if(p.tpl && DRAW[p.tpl] && p.tpl!==st.tpl){ st.tpl = p.tpl; LS.set('cm.tpl',st.tpl); }
   if(typeof p.place==='string' && p.place.trim()) st.place = p.place.trim();
   if(typeof p.memo==='string') st.memo = p.memo.slice(0,400);
-  if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(s && typeof x.addr==='string') s.addr = x.addr.slice(0,120); });
+  if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(!s) return; if(typeof x.addr==='string'){ s.addr = x.addr.slice(0,120); s.addrMode = 'own'; } if(['all','own','none'].includes(x.addrMode)) s.addrMode = x.addrMode; });
   if(p.cover && typeof p.cover==='object') for(const k of ['kicker','title','sub','hook']) if(typeof p.cover[k]==='string') st.cover[k]=p.cover[k];
   if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(!s || Number(x.i)<1) return;
     for(const k of TEXT_KEYS) if(typeof x[k]==='string') s[k]=x[k]; });
@@ -1517,7 +1531,7 @@ $('saveBtn').onclick = async ()=>{
 const UNDO = { stack:[], last:null, timer:null, busy:false };
 function undoSnap(){
   return { refs: st.slides.slice(), j: JSON.stringify({ place:st.place, memo:st.memo, addr:st.addr, tpl:st.tpl, style:st.style, cover:st.cover, caption:st.caption,
-    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, ov:s.ov, addr:s.addr||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
+    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, ov:s.ov, addr:s.addr||'', addrMode:s.addrMode||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
 }
 function undoBtnSync(){ $('undoBtn').disabled = !UNDO.stack.length; }
 function undoMark(){ if(UNDO.busy || loading || st.sample) return; clearTimeout(UNDO.timer); UNDO.timer = setTimeout(undoCommit, 500); }
@@ -1607,7 +1621,7 @@ async function saveNow(){
     await DB.put(
       { id: st.pid, name: st.place.trim() || '이름 없는 작업', updated: now, count: st.slides.length, thumb: tc.toDataURL('image/jpeg',.7) },
       { id: st.pid, place: st.place, memo: st.memo, addr: st.addr, tpl: st.tpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES,
-        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, addr: s.addr||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
+        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, addr: s.addr||'', addrMode: s.addrMode||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
     );
     if(page===2 && !$('saveStatus').dataset.busy) $('saveStatus').textContent = `자동 저장 ${hhmm(now).split(' ')[1]}`;
   } catch(e){ if(page===2) $('saveStatus').textContent = '자동 저장 실패'; }
@@ -1626,7 +1640,7 @@ async function openProject(id){
       const url = URL.createObjectURL(new Blob([x.buf],{type:'image/jpeg'}));
       try {
         const s = newSlide(await shrink(await loadImg(url), 1800));
-        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '' });
+        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '', addrMode:x.addrMode || '' });
         TEXT_KEYS.forEach(k=>s[k] = x[k] || ''); slides.push(s);
       } finally { URL.revokeObjectURL(url); }
     }
