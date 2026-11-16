@@ -16,19 +16,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=Montserrat:wght@500;700;800&family=Cormorant+Garamond:ital,wght@1,500&display=swap">
 <style>
-/* Layout: one narrow working column on phones (input → slide cards → sticky save bar), cards flow to 2–3 columns on wide screens. */
+/* Layout: one narrow working column on phones (input → chat → slide cards → caption, sticky save bar), cards flow to 2–3 columns on wide screens. */
 :root{
   --bg:#eef0ec; --surface:#ffffff; --ink:#1d221d; --muted:#626b62; --line:#d5d9d2;
-  --accent:#34503a; --accent-ink:#ffffff; --warn:#a2452c;
+  --accent:#34503a; --accent-ink:#ffffff; --warn:#a2452c; --bubble:#e3e9e2;
   --ui:"Noto Sans KR","Apple SD Gothic Neo",system-ui,sans-serif;
   --label:Montserrat,"Noto Sans KR",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#151815; --surface:#1f231f; --ink:#e7ebe5; --muted:#9aa398; --line:#353b34;
-  --accent:#9cc3a2; --accent-ink:#112014; --warn:#e2876c; color-scheme:dark}}
+  --accent:#9cc3a2; --accent-ink:#112014; --warn:#e2876c; --bubble:#2b322b; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#151815; --surface:#1f231f; --ink:#e7ebe5; --muted:#9aa398; --line:#353b34;
-  --accent:#9cc3a2; --accent-ink:#112014; --warn:#e2876c; color-scheme:dark}
+  --accent:#9cc3a2; --accent-ink:#112014; --warn:#e2876c; --bubble:#2b322b; color-scheme:dark}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.5;
@@ -49,13 +49,15 @@ button.primary{background:var(--accent);color:var(--accent-ink);border-color:var
 button:disabled{opacity:.5;cursor:default}
 button.sm{min-height:34px;padding:5px 10px;font-size:13px}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
-.chip{position:relative;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;cursor:pointer;background:var(--bg)}
+.chip{position:relative;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:14px;cursor:pointer;background:var(--bg);white-space:nowrap}
 .chip input{position:absolute;opacity:0;inset:0;cursor:pointer}
 .chip:has(input:checked){background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .lbl{font-family:var(--label);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .status{font-size:13px;color:var(--muted);min-height:1.2em}
 .status.err{color:var(--warn)}
 .note{font-size:13px;background:var(--bg);border-radius:10px;padding:10px 12px;color:var(--muted)}
+.handleRow{display:flex;gap:8px;align-items:flex-end;flex:1 1 220px;min-width:0}
+.handleRow label.f{flex:1}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
 .card canvas{width:100%;height:auto;aspect-ratio:4/5;display:block;background:#000;max-width:100%}
@@ -72,6 +74,14 @@ button.sm{min-height:34px;padding:5px 10px;font-size:13px}
 details summary{cursor:pointer;font-weight:600}
 .filebtn{position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.msgs{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto}
+.msg{max-width:85%;padding:8px 12px;border-radius:14px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.me{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:4px}
+.msg.ai{align-self:flex-start;background:var(--bubble);border-bottom-left-radius:4px}
+.msg.ai small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.chatIn{display:flex;gap:8px}
+.chatIn input{flex:1;min-width:0}
+.hint{font-size:12px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -93,17 +103,21 @@ details summary{cursor:pointer;font-weight:600}
     <div id="sampleNote" class="note" hidden>지금 보이는 건 예시예요(토스티데이즈 사진 6장, 문구는 예시로 쓴 것). 사진을 고르면 예시가 사라져요.</div>
     <div class="row">
       <label class="f">장소 이름<input type="text" id="place" placeholder="예: 토스티데이즈" autocomplete="off"></label>
-      <label class="f">계정 핸들<input type="text" id="handle" placeholder="@my.account" autocomplete="off"></label>
+      <div class="handleRow">
+        <label class="f">계정 핸들<input type="text" id="handle" placeholder="@my.account" autocomplete="off"></label>
+        <label class="chip"><input type="checkbox" id="showHandle">핸들 표시</label>
+      </div>
     </div>
+    <label class="f">장소 설명 (선택)<textarea id="memo" rows="2" placeholder="예: 대구 동성로 2층 카페, 창가 자리가 좋아요"></textarea></label>
     <div class="row">
-      <span class="filebtn"><button class="primary" type="button" tabindex="-1">사진 고르기</button><input type="file" id="files" accept="image/*" multiple aria-label="사진 고르기"></span>
+      <span class="filebtn"><button class="primary" type="button" tabindex="-1" id="fileLbl">사진 고르기</button><input type="file" id="files" accept="image/*" multiple aria-label="사진 고르기"></span>
       <button type="button" id="clearBtn">사진 모두 지우기</button>
       <span class="status" id="countTxt"></span>
     </div>
     <div>
       <div class="lbl" style="margin-bottom:6px">템플릿</div>
       <div class="chips" id="tplChips">
-        <label class="chip"><input type="radio" name="tpl" value="yoon" checked>번호형</label>
+        <label class="chip"><input type="radio" name="tpl" value="yoon">번호형</label>
         <label class="chip"><input type="radio" name="tpl" value="tomato">코스형</label>
         <label class="chip"><input type="radio" name="tpl" value="deon">감성형</label>
       </div>
@@ -121,8 +135,22 @@ details summary{cursor:pointer;font-weight:600}
           <label class="f">Gemini API 키 (이 기기에만 저장)<input type="password" id="gkey" autocomplete="off"></label>
           <label class="f">모델 이름<input type="text" id="gmodel" autocomplete="off"></label>
         </div>
+        <div class="row"><button type="button" class="sm" id="resetStyle">글씨 크기·위치·어둡기 처음으로</button></div>
       </div>
     </details>
+  </section>
+
+  <section class="panel" aria-label="대화로 바꾸기">
+    <span class="lbl">대화로 바꾸기</span>
+    <div class="msgs" id="msgs" aria-live="polite">
+      <div class="msg ai">말로 하면 바꿔 드려요.
+예) "핸들 빼줘", "제목 더 크게", "글씨 좀 위로", "사진 아래 덜 어둡게", "여긴 대구 카페야, 문구 다시 써줘", "2번 장 제목을 '창가 자리'로"</div>
+    </div>
+    <form class="chatIn" id="chatForm">
+      <input type="text" id="chatText" placeholder="바꾸고 싶은 걸 말해 주세요" autocomplete="off" enterkeyhint="send">
+      <button type="submit" class="primary" id="chatSend">보내기</button>
+    </form>
+    <div class="hint">새 기능을 넣는 건 여기서 안 돼요. 그런 건 관리자에게 부탁해 주세요.</div>
   </section>
 
   <section aria-label="슬라이드">
@@ -155,14 +183,21 @@ const LS = {
 };
 const $ = id => document.getElementById(id);
 
+// ---------- state ----------
+const STYLE0 = { showHandle:true, titleScale:1, textScale:1, textY:0, shade:1, tone:'' };
+const RANGE = { titleScale:[.7,1.5], textScale:[.7,1.5], textY:[-300,150], shade:[.3,1.6] };
+function loadStyle(){ try { return { ...STYLE0, ...JSON.parse(LS.get('cm.style')||'{}') } } catch(e){ return { ...STYLE0 } } }
 const st = {
-  place: '', handle: LS.get('cm.handle') || '', tpl: LS.get('cm.tpl') || 'yoon',
+  place: '', memo: '', handle: LS.get('cm.handle') || '', tpl: LS.get('cm.tpl') || 'yoon',
+  style: loadStyle(),
   cover: { kicker:'', title:'', sub:'', hook:'' },
   slides: [], caption: '', sample: false
 };
+const saveStyle = () => LS.set('cm.style', JSON.stringify(st.style));
 let uid = 0;
 const newSlide = img => ({ id: ++uid, img, fx: .5, fy: .5, zoom: 1,
   en_title:'', en_sub:'', ko_title:'', ko1:'', ko2:'' });
+const TEXT_KEYS = ['en_title','en_sub','ko_title','ko1','ko2'];
 
 // ---------- fields per template ----------
 const FIELDS = {
@@ -179,7 +214,7 @@ const FIELDS = {
 };
 
 // ---------- drawing ----------
-const handleTxt = () => { const h = (st.handle||'').trim().replace(/^@+/,''); return h ? '@'+h : '' };
+const handleTxt = () => { if(!st.style.showHandle) return ''; const h = (st.handle||'').trim().replace(/^@+/,''); return h ? '@'+h : '' };
 function shadow(ctx,on){ ctx.shadowColor = on ? 'rgba(0,0,0,.38)' : 'transparent'; ctx.shadowBlur = on ? 14 : 0; ctx.shadowOffsetY = on ? 1 : 0; }
 function drawPhoto(ctx,s){
   const im = s.img, iw = im.width, ih = im.height;
@@ -187,13 +222,19 @@ function drawPhoto(ctx,s){
   ctx.drawImage(im, -(dw-W)*s.fx, -(dh-H)*s.fy, dw, dh);
 }
 function grad(ctx,from,a){
+  a = Math.min(.95, a*st.style.shade);
+  from = Math.max(.15, from + Math.min(0, st.style.textY)/H);
   const g = ctx.createLinearGradient(0,H*from,0,H);
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.55,`rgba(0,0,0,${a*.6})`); g.addColorStop(1,`rgba(0,0,0,${a})`);
   ctx.fillStyle = g; ctx.fillRect(0,H*from,W,H*(1-from)+1);
 }
+// role: 't' = big title (titleScale), 'b' = body (textScale), 'fixed' = handle/number (no scale, no move)
 function txt(ctx,str,x,y,o){
   if(!str) return 0;
-  let s = o.size; const fam = o.fam||F.ko, w = o.weight||400, maxW = o.maxW||W-144;
+  const S = st.style, fixed = o.role==='fixed';
+  let s = o.size * (o.role==='t' ? S.titleScale : fixed ? 1 : S.textScale);
+  if(!fixed) y += S.textY;
+  const fam = o.fam||F.ko, w = o.weight||400, maxW = o.maxW||W-144;
   const set = () => { ctx.font = `${o.italic?'italic ':''}${w} ${s}px ${fam}`; if('letterSpacing' in ctx) ctx.letterSpacing = (o.ls||0)+'px'; };
   set(); while(ctx.measureText(str).width > maxW && s > 12){ s -= 2; set(); }
   ctx.textAlign = o.align||'left'; ctx.textBaseline = 'alphabetic';
@@ -207,55 +248,59 @@ const SPARK = ' ˚₊‧';
 
 const DRAW = {
   yoon(ctx,s,i,c){
+    const T = st.style.titleScale, B = st.style.textScale;
     if(i===0){
       grad(ctx,.45,.62); shadow(ctx,true);
-      txt(ctx,c.kicker,72,1010,{size:28,color:W90});
-      txt(ctx,(c.title||st.place).replace(/\n/g,' '),72,1094,{size:76,weight:700});
-      txt(ctx,c.sub,72,1150,{size:26,color:W80});
+      txt(ctx,c.kicker,72,1094-84*T,{size:28,color:W90,role:'b'});
+      txt(ctx,(c.title||st.place).replace(/\n/g,' '),72,1094,{size:76,weight:700,role:'t'});
+      txt(ctx,c.sub,72,1094+56*B,{size:26,color:W80,role:'b'});
     } else {
       grad(ctx,.5,.6);
-      shadow(ctx,false); ctx.fillStyle='#fff'; ctx.fillRect(72,872,88,88);
-      txt(ctx,String(i).padStart(2,'0'),116,932,{size:44,weight:800,fam:F.en,color:'#111',align:'center'});
+      const dy = st.style.textY, top = 1038 - 166*T;
+      shadow(ctx,false); ctx.fillStyle='#fff'; ctx.fillRect(72,top+dy,88,88);
+      txt(ctx,String(i).padStart(2,'0'),116,top+60+dy,{size:44,weight:800,fam:F.en,color:'#111',align:'center',role:'fixed'});
       shadow(ctx,true);
-      txt(ctx,(s.en_title||'').toUpperCase(),72,1038,{size:50,weight:800,fam:F.en,ls:1});
-      txt(ctx,(s.en_sub||'').toUpperCase(),74,1092,{size:27,weight:500,fam:F.en,color:W90,ls:1});
-      txt(ctx,s.ko1,74,1156,{size:28,color:W90});
-      txt(ctx,s.ko2,74,1198,{size:28,color:W90});
+      txt(ctx,(s.en_title||'').toUpperCase(),72,1038,{size:50,weight:800,fam:F.en,ls:1,role:'t'});
+      txt(ctx,(s.en_sub||'').toUpperCase(),74,1038+54*B,{size:27,weight:500,fam:F.en,color:W90,ls:1,role:'b'});
+      txt(ctx,s.ko1,74,1038+118*B,{size:28,color:W90,role:'b'});
+      txt(ctx,s.ko2,74,1038+160*B,{size:28,color:W90,role:'b'});
     }
-    txt(ctx,handleTxt(),W/2,1312,{size:22,weight:500,fam:F.en,color:W80,align:'center'});
+    txt(ctx,handleTxt(),W/2,1312,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'fixed'});
   },
   tomato(ctx,s,i,c){
+    const T = st.style.titleScale, B = st.style.textScale;
     shadow(ctx,true);
-    txt(ctx,handleTxt(),W/2,52,{size:22,weight:500,fam:F.en,color:W80,align:'center'});
+    txt(ctx,handleTxt(),W/2,52,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'fixed'});
     grad(ctx,.42,.72); shadow(ctx,true);
     if(i===0){
-      const L = lines(c.hook, c.title||st.place), last = 1214, lh = 82;
-      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:66,weight:800}));
-      txt(ctx,c.kicker,74,last-(L.length-1)*lh-84,{size:27,weight:500,color:W90});
-      if(c.sub) txt(ctx,'|  '+c.sub,74,1284,{size:24,weight:500,color:W90});
+      const L = lines(c.hook, c.title||st.place), lh = 82*T, last = 1284 - 70*B;
+      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:66,weight:800,role:'t'}));
+      txt(ctx,c.kicker,74,last-(L.length-1)*lh-84*T,{size:27,weight:500,color:W90,role:'b'});
+      if(c.sub) txt(ctx,'|  '+c.sub,74,1284,{size:24,weight:500,color:W90,role:'b'});
     } else {
-      const L = lines(s.ko_title), last = 1196, lh = 68;
-      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:54,weight:800}));
+      const L = lines(s.ko_title), lh = 68*T, last = 1270 - 74*B;
+      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:54,weight:800,role:'t'}));
       const d = [s.ko1,s.ko2].filter(Boolean).join(' ');
-      if(d) txt(ctx,'|  '+d,74,1270,{size:24,weight:500,color:W90});
+      if(d) txt(ctx,'|  '+d,74,1270,{size:24,weight:500,color:W90,role:'b'});
     }
   },
   deon(ctx,s,i,c){
+    const T = st.style.titleScale, B = st.style.textScale;
     grad(ctx,.36,.72); shadow(ctx,true);
     const L = i===0 ? lines(c.hook, c.title||st.place) : lines(s.ko_title);
-    const last = i===0 ? 1150 : 1090, lh = 70;
+    const last = i===0 ? 1150 : 1090, lh = 70*T;
     L.forEach((t,k)=>{
       const y = last-(L.length-1-k)*lh;
-      const w = txt(ctx,t,72,y,{size:52,weight:700,maxW:W-220});
-      if(k===L.length-1) txt(ctx,SPARK,72+w+4,y-6,{size:30,weight:500,color:W90});
+      const w = txt(ctx,t,72,y,{size:52,weight:700,maxW:W-220,role:'t'});
+      if(k===L.length-1) txt(ctx,SPARK,72+w+4,y-6,{size:30,weight:500,color:W90,role:'b'});
     });
     const top = last-(L.length-1)*lh;
-    txt(ctx,handleTxt(),72,top-66,{size:34,weight:500,fam:F.sc,italic:true,color:W90});
+    txt(ctx,handleTxt(),72,top-66*T,{size:34,weight:500,fam:F.sc,italic:true,color:W90,role:'b'});
     if(i>0){
-      txt(ctx,s.ko1,74,last+60,{size:27,color:W90});
-      txt(ctx,s.ko2,74,last+100,{size:27,color:W90});
+      txt(ctx,s.ko1,74,last+60*B,{size:27,color:W90,role:'b'});
+      txt(ctx,s.ko2,74,last+100*B,{size:27,color:W90,role:'b'});
     }
-    txt(ctx,handleTxt(),W/2,1322,{size:18,weight:700,fam:F.en,color:W80,align:'center'});
+    txt(ctx,handleTxt(),W/2,1322,{size:18,weight:700,fam:F.en,color:W80,align:'center',role:'fixed'});
   }
 };
 
@@ -271,7 +316,7 @@ function drawSlide(cv,s,i){
 let fontKey = '';
 async function ensureFonts(){
   const all = [st.place, st.handle, SPARK, '0123456789|@', ...Object.values(st.cover),
-    ...st.slides.flatMap(s=>[s.en_title,s.en_sub,s.ko_title,s.ko1,s.ko2])].join('');
+    ...st.slides.flatMap(s=>TEXT_KEYS.map(k=>s[k]))].join('');
   const uniq = [...new Set(all + all.toUpperCase())].join('');
   if(uniq === fontKey) return; fontKey = uniq;
   const specs = ['400 30px "Noto Sans KR"','500 30px "Noto Sans KR"','700 30px "Noto Sans KR"','800 30px "Noto Sans KR"',
@@ -330,12 +375,20 @@ function renderList(){
       ...fs
     ])]));
   });
-  $('empty').hidden = st.slides.length>0;
-  $('countTxt').textContent = st.slides.length ? `${st.slides.length}장` : '';
-  $('saveBtn').textContent = st.slides.length ? `${st.slides.length}장 저장` : '저장';
-  $('saveBtn').disabled = !st.slides.length;
+  const n = st.slides.length;
+  $('empty').hidden = n>0;
+  $('countTxt').textContent = n ? `${n}장` : '';
+  $('fileLbl').textContent = n ? '사진 추가' : '사진 고르기';
+  $('files').setAttribute('aria-label', n ? '사진 추가' : '사진 고르기');
+  $('saveBtn').textContent = n ? `${n}장 저장` : '저장';
+  $('saveBtn').disabled = !n;
   $('sampleNote').hidden = !st.sample;
   fontKey = ''; scheduleRender();
+}
+function syncInputs(){
+  $('place').value = st.place; $('memo').value = st.memo; $('handle').value = st.handle;
+  $('showHandle').checked = st.style.showHandle;
+  document.querySelectorAll('input[name=tpl]').forEach(r=>r.checked = r.value===st.tpl);
 }
 
 // ---------- photos ----------
@@ -361,13 +414,16 @@ $('files').addEventListener('change', async e=>{
 $('clearBtn').onclick = ()=>{ st.slides=[]; st.sample=false; renderList(); };
 
 // ---------- inputs ----------
+syncInputs();
 $('place').addEventListener('input',e=>{ st.place=e.target.value; scheduleRender(); });
-$('handle').value = st.handle;
+$('memo').addEventListener('input',e=>{ st.memo=e.target.value; });
 $('handle').addEventListener('input',e=>{ st.handle=e.target.value; LS.set('cm.handle',st.handle); scheduleRender(); });
+$('showHandle').addEventListener('change',e=>{ st.style.showHandle=e.target.checked; saveStyle(); scheduleRender(); });
 document.querySelectorAll('input[name=tpl]').forEach(r=>{
-  r.checked = r.value===st.tpl;
   r.addEventListener('change',()=>{ st.tpl=r.value; LS.set('cm.tpl',st.tpl); renderList(); });
 });
+$('resetStyle').onclick = ()=>{ const keep = { showHandle: st.style.showHandle, tone: st.style.tone };
+  st.style = { ...STYLE0, ...keep }; saveStyle(); scheduleRender(); };
 $('caption').addEventListener('input',e=>st.caption=e.target.value);
 $('copyCap').onclick = async ()=>{
   const t = $('caption');
@@ -375,11 +431,11 @@ $('copyCap').onclick = async ()=>{
   catch(e){ t.focus(); t.select(); }
 };
 
-// ---------- AI ----------
+// ---------- AI plumbing ----------
 let sampleFn = null, dl = null, aiCtl = null;
 const GEM = { key: LS.get('cm.gkey')||'', model: LS.get('cm.gmodel')||'gemini-3.8-flash' };
 $('gkey').value = GEM.key; $('gmodel').value = GEM.model;
-$('gkey').addEventListener('input',e=>{ GEM.key=e.target.value.trim(); LS.set('cm.gkey',GEM.key); });
+$('gkey').addEventListener('input',e=>{ GEM.key=e.target.value.trim(); LS.set('cm.gkey',GEM.key); setMode(); });
 $('gmodel').addEventListener('input',e=>{ GEM.model=e.target.value.trim(); LS.set('cm.gmodel',GEM.model); });
 
 function setMode(){
@@ -396,26 +452,6 @@ if(window.claude && claude.use){
   claude.use('downloads').then(d=>{ dl=d; });
 }
 
-function buildPrompt(n,seen){
-  return `너는 인스타그램 카페·장소 캐러셀의 문구를 쓴다.
-장소 이름: ${st.place||'(이름 없음)'}
-사진 ${n}장 중 ${seen}장이 순서대로 첨부돼 있다. 1번은 표지, 2번부터는 본문 슬라이드다.${seen<n?' 첨부되지 않은 사진은 장소 분위기에 맞게 일반적으로 쓴다.':''}
-
-규칙
-- 사진에 실제로 보이는 것만 쓴다. 메뉴 이름을 확실히 알 수 없으면 '디저트', '라떼'처럼 일반 이름으로 쓴다.
-- 가격·주소·영업시간·과장 표현은 쓰지 않는다. 이모지 없음.
-- 말투는 담백한 감성. 한국어 문구는 짧은 명사형이나 '~하기', '~곳'으로 끝낸다.
-- en_title은 영어 대문자 2~3단어(예: A LITTLE BREAK), en_sub는 영어 대문자 1~3단어(예: SPACE & OBJECTS).
-- ko1, ko2는 각각 16자 이내, 둘이 이어져 한 문장처럼 읽히게.
-- ko_title은 한 줄 또는 두 줄(줄바꿈 \\n), 각 줄 14자 이내.
-- cover.hook은 저장하고 싶게 만드는 두 줄 제목(줄바꿈 \\n, 각 줄 12자 이내).
-- caption은 3~5문장의 게시물 캡션 + 빈 줄 + 해시태그 5개.
-
-아래 JSON 하나만 답한다. slides는 정확히 ${n-1}개.
-{"cover":{"kicker":"14자 이내","title":"${st.place||'장소 이름'}","sub":"20자 이내","hook":"줄1\\n줄2"},
- "slides":[{"en_title":"","en_sub":"","ko_title":"","ko1":"","ko2":""}],
- "caption":""}`;
-}
 function blobOf(c,max=1024){
   const sc = Math.min(1,max/Math.max(c.width,c.height));
   const t = document.createElement('canvas'); t.width=Math.round(c.width*sc); t.height=Math.round(c.height*sc);
@@ -424,20 +460,14 @@ function blobOf(c,max=1024){
 }
 const b64 = blob => new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).split(',')[1]); r.readAsDataURL(blob); });
 
-async function askClaude(n){
-  let max = n;
-  try { const lim = await sampleFn.limits(); max = lim.images ? Math.min(n, lim.images.maxCount) : 0; } catch(e){ max = 0; }
-  const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img)));
-  aiCtl = new AbortController();
-  return sampleFn.json(buildPrompt(n,max), { images: max?imgs:undefined, signal: aiCtl.signal, cache:false });
-}
-async function askGemini(n){
+// one entry point for both providers: returns parsed JSON
+async function aiJSON(prompt, blobs, signal){
+  if(sampleFn) return sampleFn.json(prompt, { images: blobs && blobs.length ? blobs : undefined, signal, cache:false });
   if(!GEM.key) throw { code:'nokey' };
-  const parts = [{ text: buildPrompt(n,n) }];
-  for(const s of st.slides) parts.push({ inline_data:{ mime_type:'image/jpeg', data: await b64(await blobOf(s.img)) } });
-  aiCtl = new AbortController();
+  const parts = [{ text: prompt }];
+  for(const b of (blobs||[])) parts.push({ inline_data:{ mime_type:'image/jpeg', data: await b64(b) } });
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEM.model)}:generateContent`,{
-    method:'POST', signal: aiCtl.signal,
+    method:'POST', signal,
     headers:{ 'Content-Type':'application/json', 'x-goog-api-key': GEM.key },
     body: JSON.stringify({ contents:[{ role:'user', parts }], generationConfig:{ responseMimeType:'application/json', temperature:.8 } })
   });
@@ -450,31 +480,153 @@ async function askGemini(n){
   return JSON.parse(m[0]);
 }
 const ERR = {
-  not_granted:'Claude 사용을 허용하지 않아서 문구를 만들 수 없어요.', rate_limited:'요청이 많아요. 잠시 뒤 다시 눌러 주세요.',
-  invalid_json:'답을 읽지 못했어요. 한 번 더 눌러 주세요.', nokey:'설정에서 Gemini API 키를 넣어 주세요.',
+  not_granted:'Claude 사용을 허용하지 않아서 문구를 만들 수 없어요.', rate_limited:'요청이 많아요. 잠시 뒤 다시 해 주세요.',
+  invalid_json:'답을 읽지 못했어요. 한 번 더 해 주세요.', nokey:'설정에서 Gemini API 키를 넣어 주세요.',
   image_rejected:'사진 중 보낼 수 없는 파일이 있어요.', sampling_disabled:'이 계정에서는 Claude 호출을 쓸 수 없어요.'
 };
+const errText = e => ERR[e?.code] || (e?.message ? `실패: ${e.message}` : '잘 안 됐어요. 다시 해 주세요.');
+const isCancel = e => e && (e.code==='cancelled' || e.name==='AbortError');
+
+// ---------- copy generation ----------
+function buildPrompt(n,seen){
+  return `너는 인스타그램 카페·장소 캐러셀의 문구를 쓴다.
+장소 이름: ${st.place||'(이름 없음)'}
+${st.memo.trim() ? '장소 설명(사용자가 쓴 사실, 그대로 믿고 반영): ' + st.memo.trim() + '\n' : ''}${st.style.tone.trim() ? '말투 요청: ' + st.style.tone.trim() + '\n' : ''}사진 ${n}장 중 ${seen}장이 순서대로 첨부돼 있다. 1번은 표지, 2번부터는 본문 슬라이드다.${seen<n?' 첨부되지 않은 사진은 장소 분위기에 맞게 일반적으로 쓴다.':''}
+
+규칙
+- 사진에 보이는 것과 장소 설명에 있는 것만 쓴다. 메뉴 이름을 확실히 알 수 없으면 '디저트', '라떼'처럼 일반 이름으로 쓴다.
+- 지역(서울·대구 등)은 장소 설명에 있을 때만 쓴다.
+- 가격·주소·영업시간·과장 표현은 쓰지 않는다. 이모지 없음.
+- 말투 요청이 없으면 담백한 감성. 한국어 문구는 짧은 명사형이나 '~하기', '~곳'으로 끝낸다.
+- en_title은 영어 대문자 2~3단어(예: A LITTLE BREAK), en_sub는 영어 대문자 1~3단어(예: SPACE & OBJECTS).
+- ko1, ko2는 각각 16자 이내, 둘이 이어져 한 문장처럼 읽히게.
+- ko_title은 한 줄 또는 두 줄(줄바꿈 \\n), 각 줄 14자 이내.
+- cover.hook은 저장하고 싶게 만드는 두 줄 제목(줄바꿈 \\n, 각 줄 12자 이내).
+- caption은 3~5문장의 게시물 캡션 + 빈 줄 + 해시태그 5개.
+
+아래 JSON 하나만 답한다. slides는 정확히 ${n-1}개.
+{"cover":{"kicker":"14자 이내","title":"${st.place||'장소 이름'}","sub":"20자 이내","hook":"줄1\\n줄2"},
+ "slides":[{"en_title":"","en_sub":"","ko_title":"","ko1":"","ko2":""}],
+ "caption":""}`;
+}
+async function runCopy(){
+  const n = st.slides.length;
+  if(!n) throw { message:'사진을 먼저 골라 주세요.' };
+  if(!st.place.trim()) throw { message:'장소 이름을 먼저 넣어 주세요.' };
+  let max = n;
+  if(sampleFn){ try { const lim = await sampleFn.limits(); max = lim.images ? Math.min(n, lim.images.maxCount) : 0; } catch(e){ max = 0; } }
+  const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img)));
+  aiCtl = new AbortController();
+  const out = await aiJSON(buildPrompt(n,max), imgs, aiCtl.signal);
+  const c = out.cover||{};
+  st.cover = { kicker:c.kicker||'', title:c.title||st.place, sub:c.sub||'', hook:c.hook||'' };
+  (out.slides||[]).forEach((x,k)=>{ const s = st.slides[k+1]; if(!s) return;
+    for(const key of TEXT_KEYS) s[key] = String(x[key]||''); });
+  st.caption = out.caption||''; $('caption').value = st.caption;
+  renderList();
+}
+function busy(on){ $('aiBtn').disabled = on; $('chatSend').disabled = on; $('aiStop').hidden = !on; }
 $('aiBtn').onclick = async ()=>{
-  const n = st.slides.length, S = $('aiStatus');
-  if(!n){ S.textContent='사진을 먼저 골라 주세요.'; S.classList.add('err'); return; }
-  if(!st.place.trim()){ S.textContent='장소 이름을 먼저 넣어 주세요.'; S.classList.add('err'); $('place').focus(); return; }
-  S.classList.remove('err'); S.textContent = '사진 보고 문구 쓰는 중… (30초~1분)';
-  $('aiBtn').disabled = true; $('aiStop').hidden = false;
-  if(!sampleFn && !GEM.key){ $('settings').open = true; }
-  try {
-    const out = sampleFn ? await askClaude(n) : await askGemini(n);
-    const c = out.cover||{};
-    st.cover = { kicker:c.kicker||'', title:c.title||st.place, sub:c.sub||'', hook:c.hook||'' };
-    (out.slides||[]).forEach((x,k)=>{ const s = st.slides[k+1]; if(!s) return;
-      for(const key of ['en_title','en_sub','ko_title','ko1','ko2']) s[key] = String(x[key]||''); });
-    st.caption = out.caption||''; $('caption').value = st.caption;
-    renderList(); S.textContent = '다 채웠어요. 고칠 곳은 바로 고치면 돼요.';
-  } catch(e){
-    if(e && (e.code==='cancelled' || e.name==='AbortError')) S.textContent='멈췄어요.';
-    else { S.classList.add('err'); S.textContent = ERR[e?.code] || (e?.message ? `실패: ${e.message}` : '문구를 만들지 못했어요. 다시 눌러 주세요.'); }
-  } finally { $('aiBtn').disabled=false; $('aiStop').hidden=true; }
+  const S = $('aiStatus'); S.classList.remove('err');
+  if(!sampleFn && !GEM.key){ $('setup').hidden = false; $('gkey0').focus(); S.textContent = ERR.nokey; S.classList.add('err'); return; }
+  S.textContent = '사진 보고 문구 쓰는 중… (30초~1분)'; busy(true);
+  try { await runCopy(); S.textContent = '다 채웠어요. 고칠 곳은 바로 고치거나 아래 대화창에 말해 주세요.'; }
+  catch(e){ if(isCancel(e)) S.textContent='멈췄어요.'; else { S.classList.add('err'); S.textContent = errText(e); } }
+  finally { busy(false); }
 };
 $('aiStop').onclick = ()=>aiCtl?.abort();
+
+// ---------- chat: request → settings patch ----------
+const chatLog = []; // {role:'me'|'ai', text}
+function addMsg(role,text,note){
+  const m = el('div',{class:'msg '+role,text});
+  if(note) m.append(el('small',{text:note}));
+  $('msgs').append(m); $('msgs').scrollTop = $('msgs').scrollHeight;
+  chatLog.push({role,text}); if(chatLog.length>12) chatLog.shift();
+  return m;
+}
+function chatPrompt(req){
+  const S = st.style;
+  const now = {
+    tpl: st.tpl, place: st.place, memo: st.memo,
+    style: { showHandle:S.showHandle, titleScale:S.titleScale, textScale:S.textScale, textY:S.textY, shade:S.shade, tone:S.tone },
+    cover: st.cover,
+    slides: st.slides.slice(1).map((s,k)=>({ i:k+1, en_title:s.en_title, en_sub:s.en_sub, ko_title:s.ko_title, ko1:s.ko1, ko2:s.ko2 }))
+  };
+  const hist = chatLog.slice(-8).map(m=>(m.role==='me'?'사용자: ':'도우미: ')+m.text).join('\n');
+  return `너는 인스타 캐러셀 앱의 도우미다. 사용자의 말을 앱 설정 변경으로 바꾼다.
+
+현재 상태(JSON):
+${JSON.stringify(now)}
+
+바꿀 수 있는 것 (이것 말고는 못 바꾼다)
+- style.showHandle: 핸들(@계정) 표시 true/false
+- style.titleScale: 큰 제목 크기 배율 0.7~1.5 (조금=0.1, 많이=0.25씩)
+- style.textScale: 작은 글씨 크기 배율 0.7~1.5
+- style.textY: 글씨 묶음 세로 위치(px, 이미지 높이 1350). 음수=위로. -300~150 (조금=40, 많이=100씩)
+- style.shade: 사진 아래쪽 어둡게 하는 정도 0.3~1.6 (기본 1)
+- style.tone: 문구 말투 요청(문자열). 예: "발랄하게", "반말로", "짧고 담백하게"
+- tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형)
+- place: 장소 이름, memo: 장소 설명(지역·특징 등 사용자가 알려준 사실)
+- cover: {kicker, title, sub, hook} 중 바꿀 것만 (hook은 두 줄 제목, 줄바꿈 \\n)
+- slides: [{i: 본문 번호(1부터), 바꿀 필드만: en_title, en_sub, ko_title, ko1, ko2}]
+- regen: true → 사진을 다시 보고 모든 문구를 새로 쓴다. 지역·장소 설명·말투가 바뀌어 문구 전체에 반영해야 할 때, 또는 "다시 써줘"라고 할 때만.
+
+규칙
+- 바꾸는 값만 넣는다. 그대로인 건 넣지 않는다.
+- 새 기능 추가, 버튼·화면 구조 변경, 색·폰트 교체처럼 위 목록에 없는 요청이면 아무것도 바꾸지 말고 reply에 "그건 앱을 고쳐야 해서 관리자에게 부탁해 주세요"라고 짧게 말한다.
+- 사용자가 지역이나 장소 특징을 알려주면 memo에 이어서 적고, 문구에 반영하길 원하는 것 같으면 regen: true.
+- reply는 무엇을 바꿨는지 한두 문장, 존댓말.
+
+최근 대화:
+${hist || '(없음)'}
+
+사용자 요청: ${req}
+
+JSON 하나만 답한다:
+{"reply":"", "style":{}, "tpl":null, "place":null, "memo":null, "cover":{}, "slides":[], "regen":false}`;
+}
+const clamp = (k,v) => { const r = RANGE[k]; v = Number(v); if(!isFinite(v)) return st.style[k]; return r ? Math.min(r[1], Math.max(r[0], v)) : v; };
+function applyPatch(p){
+  const done = [];
+  const sp = p.style || {};
+  for(const k of ['titleScale','textScale','textY','shade']) if(sp[k]!=null){ st.style[k] = Math.round(clamp(k,sp[k])*100)/100; done.push(k); }
+  if(typeof sp.showHandle==='boolean'){ st.style.showHandle = sp.showHandle; done.push('handle'); }
+  if(typeof sp.tone==='string'){ st.style.tone = sp.tone.slice(0,80); done.push('tone'); }
+  saveStyle();
+  let rebuild = false;
+  if(p.tpl && DRAW[p.tpl] && p.tpl!==st.tpl){ st.tpl = p.tpl; LS.set('cm.tpl',st.tpl); rebuild = true; done.push('tpl'); }
+  if(typeof p.place==='string' && p.place.trim()){ st.place = p.place.trim(); done.push('place'); }
+  if(typeof p.memo==='string'){ st.memo = p.memo.slice(0,300); done.push('memo'); }
+  if(p.cover && typeof p.cover==='object') for(const k of ['kicker','title','sub','hook']) if(typeof p.cover[k]==='string'){ st.cover[k]=p.cover[k]; rebuild = true; done.push('text'); }
+  if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(!s || Number(x.i)<1) return;
+    for(const k of TEXT_KEYS) if(typeof x[k]==='string'){ s[k]=x[k]; rebuild = true; done.push('text'); } });
+  syncInputs();
+  if(rebuild) renderList(); else scheduleRender();
+  return done;
+}
+$('chatForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const req = $('chatText').value.trim(); if(!req) return;
+  if(!sampleFn && !GEM.key){ $('setup').hidden = false; addMsg('ai', ERR.nokey); return; }
+  $('chatText').value = ''; addMsg('me', req);
+  const wait = addMsg('ai','생각하는 중…'); chatLog.pop();
+  busy(true);
+  try {
+    aiCtl = new AbortController();
+    const p = await aiJSON(chatPrompt(req), [], aiCtl.signal);
+    wait.remove();
+    applyPatch(p);
+    const reply = String(p.reply || '바꿨어요.');
+    if(p.regen && st.slides.length){
+      const m = addMsg('ai', reply, '문구를 새로 쓰는 중… (30초~1분)');
+      try { await runCopy(); m.querySelector('small').textContent = '문구를 새로 썼어요.'; }
+      catch(err){ m.querySelector('small').textContent = isCancel(err) ? '멈췄어요.' : errText(err); }
+    } else addMsg('ai', reply);
+  } catch(err){
+    wait.remove(); addMsg('ai', isCancel(err) ? '멈췄어요.' : errText(err));
+  } finally { busy(false); }
+});
 
 // ---------- save ----------
 const safeName = () => (st.place||'carousel').trim().replace(/[\\/:*?"<>|\s]+/g,'_');
@@ -515,16 +667,16 @@ $('saveBtn').onclick = async ()=>{
 // ---------- start ----------
 (async()=>{
   if(SAMPLE){
-    st.sample = true; st.place = SAMPLE.place; $('place').value = st.place;
-    if(!st.handle){ st.handle = 'my.account'; $('handle').value = st.handle; }
+    st.sample = true; st.place = SAMPLE.place;
+    if(!st.handle) st.handle = 'my.account';
     st.cover = SAMPLE.cover; st.caption = SAMPLE.caption; $('caption').value = st.caption;
     for(const x of SAMPLE.slides){
       const s = newSlide(await loadImg(x.src)); Object.assign(s, x.t, { fy: x.fy ?? .5 }); st.slides.push(s);
     }
+    syncInputs();
   }
   renderList();
 })();
 </script>
-
 </body>
 </html>
