@@ -85,6 +85,7 @@ details[open] summary::before{content:"－"}
 .sl{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
 .sl > span{flex:0 0 70px}
 .sl input{flex:1;accent-color:#ff8fa8;min-width:0}
+.sl output{flex:0 0 58px;text-align:right;font-family:var(--label);font-size:14px;color:var(--ink);background:var(--butter);border-radius:999px;padding:1px 8px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .empty{padding:32px 16px;text-align:center;color:var(--muted);font-family:var(--label)}
 
 /* saved projects */
@@ -329,7 +330,7 @@ body.p2{overflow:hidden;padding-bottom:0}
     <div class="tabpanel" role="tabpanel" id="p-chat" aria-labelledby="t-chat" hidden>
       <div class="msgs" id="msgs" aria-live="polite">
         <div class="msg ai">말로 하면 바꿔 드려요. 바뀌는 건 위 미리보기에서 바로 보여요.
-예) "핸들 빼줘", "제목 손글씨체로", "제목만 노란색", "설명 글씨 좀 크게", "이 장만 제목 검은색", "글씨 좀 위로", "표지 제목 더 크게","여긴 대구 카페야, 문구 다시 써줘", "캡션에 주차 가능하다고 넣어줘"</div>
+예) "핸들 빼줘", "제목 손글씨체로", "제목만 노란색", "설명 글씨 좀 크게", "이 장만 제목 검은색", "글씨 좀 위로", "표지 제목 더 크게", "제목에 검은 테두리", "그림자 빼줘", "여긴 대구 카페야, 문구 다시 써줘", "캡션에 주차 가능하다고 넣어줘"</div>
       </div>
       <form class="chatIn" id="chatForm">
         <input type="text" id="chatText" placeholder="바꾸고 싶은 걸 말해 주세요" autocomplete="off" enterkeyhint="send">
@@ -427,7 +428,8 @@ const LS = {
 const $ = id => document.getElementById(id);
 
 // ---------- state ----------
-const ROLE0 = () => ({ font:'auto', color:null, size:1 });
+const ROLE0 = () => ({ font:'auto', color:null, size:1, stroke:0, strokeColor:'#111111', shadow:1 });
+const STROKE_SW = ['#111111','#ffffff','#ff8fa8','#ffe58a','#7a4b3a'];
 const STYLE0 = () => ({ showHandle:true, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), h:ROLE0() } });
 function loadStyle(){
   const s = STYLE0();
@@ -474,15 +476,17 @@ const FIELDS = {
 let CUR = null; // slide being drawn (for per-slide overrides)
 function RS(role){
   const g = st.style.roles[role] || ROLE0(), o = CUR?.ov?.[role];
-  return o ? { font: o.font ?? g.font, color: o.color !== undefined ? o.color : g.color, size: o.size ?? g.size } : g;
+  return o ? { ...g, ...Object.fromEntries(Object.entries(o).filter(([,v])=>v!==undefined)) } : g;
 }
 const sz = r => RS(r).size;
 const handleTxt = () => { if(!st.style.showHandle) return ''; const h = (st.handle||'').trim().replace(/^@+/,''); return h ? '@'+h : '' };
 function lum(hex){ const m = /^#?([0-9a-f]{6})$/i.exec(hex||''); if(!m) return 1; const n = parseInt(m[1],16); return (0.299*(n>>16) + 0.587*((n>>8)&255) + 0.114*(n&255))/255; }
-function shadow(ctx,mode){
-  if(!mode){ ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0; return; }
-  const k = ctx.getTransform().a;
-  ctx.shadowColor = mode==='light' ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.38)'; ctx.shadowBlur = 14*k; ctx.shadowOffsetY = k;
+// lv: shadow strength (0 = none, 1 = default soft shadow, up to 3 = heavy)
+function shadow(ctx,mode,lv=1){
+  if(!mode || !(lv>0)){ ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0; return; }
+  const k = ctx.getTransform().a, a = Math.min(.95, (mode==='light' ? .35 : .38) * Math.min(lv, 2.5));
+  ctx.shadowColor = mode==='light' ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a})`;
+  ctx.shadowBlur = 14*k*lv; ctx.shadowOffsetY = k*Math.max(1, 2*lv-1);
 }
 function drawPhoto(ctx,s){
   const im = s.img, iw = im.width, ih = im.height;
@@ -510,8 +514,14 @@ function txt(ctx,str,x,y,o){
   const maxW = o.maxW||W-144;
   const set = () => { ctx.font = `${italic?'italic ':''}${w} ${s}px ${fam}`; if('letterSpacing' in ctx) ctx.letterSpacing = (o.ls||0)+'px'; };
   set(); while(ctx.measureText(str).width > maxW && s > 12){ s -= 2; set(); }
-  shadow(ctx, o.noShadow ? null : (lum(color) < .45 ? 'light' : 'dark'));
+  const sk = rs ? Math.max(0, +rs.stroke || 0) : 0;
+  const lv = rs ? (rs.shadow ?? 1) : 1;
+  shadow(ctx, o.noShadow ? null : (lum(color) < .45 ? 'light' : 'dark'), lv);
   ctx.textAlign = o.align||'left'; ctx.textBaseline = 'alphabetic';
+  if(sk > 0){ // outline drawn under the fill, so only the outer half shows
+    ctx.lineJoin = 'round'; ctx.miterLimit = 2; ctx.lineWidth = sk*2; ctx.strokeStyle = rs.strokeColor || '#111111';
+    ctx.strokeText(str,x,y); shadow(ctx,null);
+  }
   ctx.fillStyle = color; ctx.fillText(str,x,y);
   const wd = ctx.measureText(str).width; if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   return wd;
@@ -633,11 +643,17 @@ function field(obj,key,label,multi,idp){
   inp.addEventListener('input',()=>{ obj[key]=inp.value; scheduleRender(); });
   return el('label',{class:'f'},[label,inp]);
 }
-function slider(obj,key,label,min,max,step,idp,after){
-  const id = `${idp}-${key}`;
-  const r = el('input',{type:'range',id,min,max,step}); r.value = obj[key];
-  r.addEventListener('input',()=>{ obj[key]=+r.value; after?.(); scheduleRender(); });
-  return el('label',{class:'sl',for:id},[el('span',{text:label}),r]);
+const PCT = v => Math.round(v*100) + '%';
+const PX = v => (v>0 ? '+' : '') + Math.round(v) + 'px';
+// range input with its current number shown on the right
+function rangeRow(id,label,val,min,max,step,fmt,onInput){
+  const r = el('input',{type:'range',id,min,max,step}); r.value = val;
+  const out = el('output',{for:id,text:fmt(+r.value)});
+  r.addEventListener('input',()=>{ out.textContent = fmt(+r.value); onInput(+r.value); });
+  return el('label',{class:'sl',for:id},[el('span',{text:label}),r,out]);
+}
+function slider(obj,key,label,min,max,step,idp,after,fmt=PCT){
+  return rangeRow(`${idp}-${key}`,label,obj[key],min,max,step,fmt,v=>{ obj[key]=v; after?.(); scheduleRender(); });
 }
 
 // photo colours for swatches (from the cover photo)
@@ -671,8 +687,20 @@ function roleEditor(target, isOv, idp){
       sel.setAttribute('aria-label',`${name} 폰트: ${fontLabel(f)}, 바꾸기`); };
     showFont();
     sel.onclick = () => openFontSheet(name, cur().font || 'auto', v => { set('font', v); showFont(); });
-    const rng = el('input',{type:'range',id:`${idp}-${r}-size`,min:.6,max:1.6,step:.05});
-    rng.value = cur().size; rng.oninput = () => { target[r].size = +rng.value; if(!isOv) saveStyle(); scheduleRender(); };
+    const live = (k,v) => { target[r][k] = v; if(!isOv) saveStyle(); scheduleRender(); };
+    const sizeRow = rangeRow(`${idp}-${r}-size`,'크기',cur().size,.6,1.6,.05,PCT,v=>live('size',v));
+    const strokeRow = rangeRow(`${idp}-${r}-stroke`,'획 두께',cur().stroke||0,0,16,1,v=>v?v+'px':'없음',v=>{ live('stroke',v); skBox.hidden = !v; });
+    const shadowRow = rangeRow(`${idp}-${r}-shadow`,'그림자',cur().shadow ?? 1,0,3,.1,v=>v?PCT(v):'없음',v=>live('shadow',v));
+    const skBox = el('div',{class:'sw'}); skBox.hidden = !(cur().stroke>0);
+    const paintSk = () => {
+      skBox.textContent = ''; const c = cur().strokeColor || '#111111';
+      skBox.append(el('span',{class:'hint',text:'획 색'}));
+      STROKE_SW.forEach(h=>skBox.append(el('button',{type:'button',style:`background:${h}`,'aria-label':`획 색 ${h}`,'aria-pressed':String(c===h),onclick:()=>{ live('strokeColor',h); paintSk(); }})));
+      const pk = el('input',{type:'color',id:`${idp}-${r}-skpick`,'aria-label':`${name} 획 색 직접 고르기`}); pk.value = c;
+      pk.oninput = () => live('strokeColor',pk.value); pk.onchange = paintSk;
+      skBox.append(pk);
+    };
+    paintSk();
     const sw = el('div',{class:'sw'});
     const paint = () => {
       sw.textContent = ''; const c = cur().color;
@@ -686,8 +714,7 @@ function roleEditor(target, isOv, idp){
     paint();
     box.append(el('div',{class:'role'},[
       el('div',{class:'rh'},[el('b',{text:name}), sel]),
-      el('label',{class:'sl',for:`${idp}-${r}-size`},[el('span',{text:'크기'}), rng]),
-      sw
+      sizeRow, sw, strokeRow, skBox, shadowRow
     ]));
   });
   return box;
@@ -794,7 +821,7 @@ function renderStyleTab(){
   P.append(el('div',{class:'lbl',text:'표지 제목 크기 (썸네일용)'}));
   P.append(slider(st.style,'coverScale','표지 제목',.8,2.2,.05,'gs',saveStyle));
   P.append(el('div',{class:'lbl',text:'글씨 위치·사진 어둡기 (모든 장)'}));
-  P.append(slider(st.style,'textY','글씨 위치',-300,150,5,'gs',saveStyle));
+  P.append(slider(st.style,'textY','글씨 위치',-300,150,5,'gs',saveStyle,v=>v===0?'0 기본':(v<0?`위 ${-v}`:`아래 ${v}`)));
   P.append(slider(st.style,'shade','어둡기',.3,1.6,.05,'gs',saveStyle));
 }
 function renderThumbs(){
@@ -1276,7 +1303,9 @@ function chatPrompt(req){
 ${JSON.stringify(now)}
 
 글씨 파트(roles) 4개: t=큰 제목, k=윗줄(표지 윗줄·영문 소제목), b=작은 설명, h=핸들
-각 파트 설정: font(아래 목록 중 하나), color("#rrggbb" 또는 null=템플릿 기본), size(0.6~1.6, 조금=0.1, 많이=0.25씩)
+각 파트 설정: font(아래 목록 중 하나), color("#rrggbb" 또는 null=템플릿 기본), size(0.6~1.6, 조금=0.1, 많이=0.25씩),
+  stroke(글씨 테두리 획 두께 px, 0=없음, 0~16, 보통 4, 굵게 8), strokeColor("#rrggbb", 기본 #111111),
+  shadow(그림자 세기 0~3, 0=없음, 기본 1, 진하게 2)
 font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 
 바꿀 수 있는 것 (이것 말고는 못 바꾼다)
@@ -1309,7 +1338,7 @@ ${hist || '(없음)'}
 JSON 하나만 답한다:
 {"reply":"", "style":{}, "slideRoles":[], "tpl":null, "place":null, "memo":null, "cover":{}, "slides":[], "caption":null, "regen":false}`;
 }
-const RANGE = { textY:[-300,150], shade:[.3,1.6], coverScale:[.8,2.2], size:[.6,1.6] };
+const RANGE = { textY:[-300,150], shade:[.3,1.6], coverScale:[.8,2.2], size:[.6,1.6], stroke:[0,16], shadow:[0,3] };
 const clampTo = (k,v,fb) => { const r = RANGE[k]; v = Number(v); if(!isFinite(v)) return fb; return Math.round(Math.min(r[1], Math.max(r[0], v))*100)/100; };
 function cleanRole(src, base){
   const out = {};
@@ -1318,6 +1347,9 @@ function cleanRole(src, base){
   if(src.color===null) out.color = null;
   else if(typeof src.color==='string' && /^#[0-9a-f]{6}$/i.test(src.color)) out.color = src.color.toLowerCase();
   if(src.size!=null) out.size = clampTo('size', src.size, base?.size ?? 1);
+  if(src.stroke!=null) out.stroke = Math.round(clampTo('stroke', src.stroke, base?.stroke ?? 0));
+  if(typeof src.strokeColor==='string' && /^#[0-9a-f]{6}$/i.test(src.strokeColor)) out.strokeColor = src.strokeColor.toLowerCase();
+  if(src.shadow!=null) out.shadow = clampTo('shadow', src.shadow, base?.shadow ?? 1);
   return out;
 }
 function applyPatch(p){
