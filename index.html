@@ -111,7 +111,7 @@ body.p2{overflow:hidden;padding-bottom:0}
 #aiStatus:empty{display:none}
 .stage{display:flex;flex-direction:column;gap:8px;flex:0 0 auto}
 .view{display:flex;justify-content:center}
-#mainCv{height:36vh;height:36dvh;width:auto;max-width:100%;aspect-ratio:4/5;border-radius:20px;border:2px solid var(--line);background:#000;touch-action:pan-y;display:block}
+#mainCv{object-fit:contain;height:36vh;height:36dvh;width:auto;max-width:100%;aspect-ratio:4/5;border-radius:20px;border:2px solid var(--line);background:#000;touch-action:pan-y;display:block}
 .panes{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-radius:26px}
 .panes .tabpanel{margin-top:0;box-shadow:none}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -191,6 +191,9 @@ body.p2{overflow:hidden;padding-bottom:0}
 .igTrack{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .igTrack::-webkit-scrollbar{display:none}
 .igTrack canvas{flex:0 0 100%;width:100%;height:auto;aspect-ratio:4/5;scroll-snap-align:start;scroll-snap-stop:always;display:block}
+.igArrow{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%!important;background:rgba(255,255,255,.85)!important;color:#262626!important;font-size:18px!important;line-height:1;display:none;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.25)!important;padding:0!important}
+.igArrow.prev{left:10px}.igArrow.next{right:10px}
+@media (hover:hover) and (pointer:fine){.igArrow{display:flex}.igArrow[hidden]{display:none}}
 .igCount{position:absolute;top:12px;right:12px;background:rgba(18,18,18,.7);color:#fff;font-size:12px;padding:3px 9px;border-radius:999px}
 .igActs{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:8px 12px}
 .igActs .l{display:flex;gap:14px}.igActs .r{justify-self:end}
@@ -205,6 +208,20 @@ body.p2{overflow:hidden;padding-bottom:0}
   padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .bar .in{max-width:760px;margin:0 auto;display:flex;gap:10px;align-items:center}
 .bar .in button{flex:1}
+@media (min-width:900px) and (min-height:560px){
+  #page2{max-width:1280px;display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,460px);grid-template-rows:auto auto auto auto minmax(0,1fr) auto;column-gap:24px;row-gap:8px}
+  #page2 > .topbar{grid-column:1/-1;grid-row:1}
+  #page2 > #aiProg{grid-column:1/-1;grid-row:2}
+  #page2 > #aiStatus{grid-column:1/-1;grid-row:3}
+  #page2 > .stage{display:contents}
+  #page2 .view{grid-column:1;grid-row:4/6;min-height:0;height:100%}
+  #page2 .nav{grid-column:1;grid-row:6;justify-content:center;gap:12px}
+  #page2 .tabs{grid-column:2;grid-row:4}
+  #page2 > .panes{grid-column:2;grid-row:5/7}
+  #mainCv{height:100%;max-height:100%}
+  .order{grid-template-columns:repeat(5,1fr)}
+  .igPost{max-width:520px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -238,6 +255,10 @@ body.p2{overflow:hidden;padding-bottom:0}
       </div>
     </div>
     <label class="f">장소 설명 (선택)<textarea id="memo" rows="2" placeholder="예: 대구 동성로 2층 카페, 창가 자리가 좋아요"></textarea></label>
+    <div class="handleRow">
+      <label class="f">주소 (선택 · 번호 옆에 들어가요)<input type="text" id="addr" placeholder="예: 대구 중구 동성로 12" autocomplete="off"></label>
+      <label class="chip"><input type="checkbox" id="showAddr">주소 넣기</label>
+    </div>
     <div class="row">
       <span class="filebtn"><button type="button" tabindex="-1" id="fileLbl">사진 첨부하기</button><input type="file" id="files" accept="image/*" multiple aria-label="사진 첨부하기"></span>
       <button type="button" id="clearBtn">사진 모두 지우기</button>
@@ -369,7 +390,7 @@ body.p2{overflow:hidden;padding-bottom:0}
   <div class="igScroll">
     <div class="igPost">
       <div class="igHead"><span class="igAv"><i id="igAvImg"></i></span><b id="igName"></b><span aria-hidden="true">⋯</span></div>
-      <div class="igMedia"><div class="igTrack" id="igTrack"></div><span class="igCount" id="igCount">1/1</span></div>
+      <div class="igMedia"><div class="igTrack" id="igTrack"></div><button type="button" class="igArrow prev" id="igPrev" aria-label="이전 사진">‹</button><button type="button" class="igArrow next" id="igNext" aria-label="다음 사진">›</button><span class="igCount" id="igCount">1/1</span></div>
       <div class="igActs" aria-hidden="true">
         <div class="l">
           <svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.6 4.5 7.1 4.5c2 0 3.6 1.1 4.9 2.9 1.3-1.8 2.9-2.9 4.9-2.9 3.5 0 5.7 3.5 4.4 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg>
@@ -417,7 +438,7 @@ const FONT_NOTE = { 'auto':'템플릿에 맞춘 글씨', '"Noto Sans KR"':'깔�
   'Montserrat':'영어용 · 한글은 고딕', '"Cormorant Garamond"':'영어용 · 한글은 고딕' };
 const fontLabel = v => (FONTS.find(f=>f[0]===v)||FONTS[0])[1];
 const FONT_IDS = FONTS.map(f=>f[0]);
-const ROLES = [['t','큰 제목'],['k','윗줄'],['b','작은 설명'],['h','핸들']];
+const ROLES = [['t','큰 제목'],['k','윗줄'],['b','작은 설명'],['a','주소'],['h','핸들']];
 const ROLE_KEYS = ROLES.map(r=>r[0]);
 const SWATCH = ['#ffffff','#f4ecd8','#ffe58a','#ffc7c2','#111111'];
 const LS = {
@@ -430,12 +451,12 @@ const $ = id => document.getElementById(id);
 // ---------- state ----------
 const ROLE0 = () => ({ font:'auto', color:null, size:1, stroke:0, strokeColor:'#111111', shadow:1 });
 const STROKE_SW = ['#111111','#ffffff','#ff8fa8','#ffe58a','#7a4b3a'];
-const STYLE0 = () => ({ showHandle:true, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), h:ROLE0() } });
+const STYLE0 = () => ({ showHandle:true, showAddr:false, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), a:ROLE0(), h:ROLE0() } });
 function loadStyle(){
   const s = STYLE0();
   try {
     const o = JSON.parse(LS.get('cm.style')||'{}');
-    for(const k of ['showHandle','textY','shade','tone','coverScale']) if(o[k]!=null) s[k]=o[k];
+    for(const k of ['showHandle','showAddr','textY','shade','tone','coverScale']) if(o[k]!=null) s[k]=o[k];
     if(o.roles) for(const r of ROLE_KEYS) if(o.roles[r]) s.roles[r] = { ...ROLE0(), ...o.roles[r] };
     if(o.titleScale && !o.roles) s.roles.t.size = o.titleScale;
     if(o.textScale && !o.roles){ s.roles.b.size = o.textScale; s.roles.k.size = o.textScale; }
@@ -443,7 +464,7 @@ function loadStyle(){
   return s;
 }
 const st = {
-  place: '', memo: '', handle: LS.get('cm.handle') || '', tpl: LS.get('cm.tpl') || 'yoon',
+  place: '', memo: '', addr: '', handle: LS.get('cm.handle') || '', tpl: LS.get('cm.tpl') || 'yoon',
   style: loadStyle(),
   cover: { kicker:'', title:'', sub:'', hook:'' },
   slides: [], cur: 0, caption: '', sample: false
@@ -451,7 +472,7 @@ const st = {
 const saveStyle = () => LS.set('cm.style', JSON.stringify(st.style));
 let uid = 0;
 const newSlide = img => ({ id: ++uid, img, fx: .5, fy: .5, zoom: 1, ov: null,
-  en_title:'', en_sub:'', ko_title:'', ko1:'', ko2:'' });
+  en_title:'', en_sub:'', ko_title:'', ko1:'', ko2:'', addr:'' });
 const TEXT_KEYS = ['en_title','en_sub','ko_title','ko1','ko2'];
 const curSlide = () => st.slides[st.cur];
 let tab = LS.get('cm.tab') || 'text';
@@ -479,6 +500,8 @@ function RS(role){
   return o ? { ...g, ...Object.fromEntries(Object.entries(o).filter(([,v])=>v!==undefined)) } : g;
 }
 const sz = r => RS(r).size;
+// address on inner slides: the slide's own address, else the default address; off unless showAddr
+const addrTxt = (s,pre='') => { if(!st.style.showAddr) return ''; const a = ((s && s.addr) || st.addr || '').trim(); return a ? pre + a : ''; };
 const handleTxt = () => { if(!st.style.showHandle) return ''; const h = (st.handle||'').trim().replace(/^@+/,''); return h ? '@'+h : '' };
 function lum(hex){ const m = /^#?([0-9a-f]{6})$/i.exec(hex||''); if(!m) return 1; const n = parseInt(m[1],16); return (0.299*(n>>16) + 0.587*((n>>8)&255) + 0.114*(n&255))/255; }
 // lv: shadow strength (0 = none, 1 = default soft shadow, up to 3 = heavy)
@@ -545,6 +568,7 @@ const DRAW = {
       const dy = st.style.textY, top = 1038 - 166*T;
       shadow(ctx,null); ctx.fillStyle='#fff'; ctx.fillRect(72,top+dy,88,88);
       txt(ctx,String(i).padStart(2,'0'),116,top+60+dy,{size:44,weight:800,fam:F.en,color:'#111',align:'center',fixed:true,noShadow:true});
+      txt(ctx,addrTxt(s),184,top+54,{size:28,weight:500,color:W90,maxW:W-184-72,role:'a'});
       txt(ctx,(s.en_title||'').toUpperCase(),72,1038,{size:50,weight:800,fam:F.en,ls:1,role:'t'});
       txt(ctx,(s.en_sub||'').toUpperCase(),74,1038+54*K,{size:27,weight:500,fam:F.en,color:W90,ls:1,role:'k'});
       txt(ctx,s.ko1,74,1038+54*K+64*B,{size:28,color:W90,role:'b'});
@@ -565,6 +589,7 @@ const DRAW = {
     } else {
       const L = lines(s.ko_title), lh = 68*T, last = 1270 - 74*B;
       L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:54,weight:800,role:'t'}));
+      txt(ctx,addrTxt(s,'📍 '),74,last-(L.length-1)*lh-58*T,{size:24,weight:500,color:W90,role:'a'});
       const d = [s.ko1,s.ko2].filter(Boolean).join(' ');
       if(d) txt(ctx,'|  '+d,74,1270,{size:24,weight:500,color:W90,role:'b'});
     }
@@ -585,6 +610,7 @@ const DRAW = {
     if(i>0){
       txt(ctx,s.ko1,74,last+60*B,{size:27,color:W90,role:'b'});
       txt(ctx,s.ko2,74,last+100*B,{size:27,color:W90,role:'b'});
+      txt(ctx,addrTxt(s,'📍 '),74,last+150*B,{size:23,weight:500,color:W80,role:'a'});
     }
     txt(ctx,handleTxt(),W/2,1322,{size:18,weight:700,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
   }
@@ -603,7 +629,7 @@ function drawSlide(cv,s,i){
 // fonts: Google splits Korean faces by unicode range, so load with the real text
 let fontKey = '';
 async function ensureFonts(){
-  const all = [st.place, st.handle, SPARK, '0123456789|@', ...Object.values(st.cover),
+  const all = [st.place, st.handle, st.addr, '📍', ...st.slides.map(s=>s.addr||''), SPARK, '0123456789|@', ...Object.values(st.cover),
     ...st.slides.flatMap(s=>TEXT_KEYS.map(k=>s[k]))].join('');
   const fams = new Set(['"Noto Sans KR"','Montserrat','"Cormorant Garamond"']);
   const add = r => { if(r && r.font && r.font!=='auto') fams.add(r.font); };
@@ -884,6 +910,15 @@ function renderEditor(){
   P.append(el('div',{class:'lbl',text: i===0 ? '표지 문구' : `${i+1}번 장 문구`}));
   (i===0 ? FIELDS.cover[st.tpl].map(([k,l,m])=>field(st.cover,k,l,m,'cv'))
           : FIELDS.inner[st.tpl].map(([k,l,m])=>field(s,k,l,m,'s'+s.id))).forEach(f=>P.append(f));
+  if(i>0){
+    const cb = el('input',{type:'checkbox',id:'showAddr2'}); cb.checked = !!st.style.showAddr;
+    cb.onchange = () => { st.style.showAddr = cb.checked; saveStyle(); syncInputs(); renderEditor(); };
+    P.append(el('div',{class:'row',style:'justify-content:space-between'},[el('span',{class:'lbl',text:'주소 (번호 옆)'}), el('label',{class:'chip'},[cb,'주소 넣기'])]));
+    if(st.style.showAddr){
+      const f = field(s,'addr',`이 장 주소 (비우면 기본 주소: ${st.addr.trim()||'없음'})`,false,'s'+s.id);
+      P.append(f, el('div',{class:'hint',text:'기본 주소는 ① 정보 페이지에서 넣어요. 장마다 다른 곳이면 여기에 따로 적어 주세요. 글씨는 글씨 탭 "주소"에서 바꿔요.'}));
+    }
+  }
   // 사진
   const Q = $('p-photo'); Q.textContent = '';
   Q.append(el('div',{class:'lbl',text:'사진 순서'}), el('div',{class:'hint',text:'사진을 끌어다 원하는 자리에 놓으면 순서가 바뀌어요. 첫 칸이 표지예요. 누르면 그 장으로 가요.'}), orderGrid());
@@ -904,6 +939,7 @@ function renderEditor(){
 function syncInputs(){
   $('place').value = st.place; $('memo').value = st.memo; $('handle').value = st.handle;
   $('showHandle').checked = st.style.showHandle;
+  $('addr').value = st.addr; $('showAddr').checked = !!st.style.showAddr;
   document.querySelectorAll('input[name=tpl]').forEach(r=>r.checked = r.value===st.tpl);
 }
 $('prevBtn').onclick = ()=>go(st.cur-1);
@@ -944,7 +980,8 @@ async function openIg(at){
   $('igAvImg').style.backgroundImage = `url(${av.toDataURL('image/jpeg',.8)})`;
   const mark = () => { const k = Math.round(T.scrollLeft / Math.max(1,T.clientWidth));
     $('igCount').textContent = `${k+1}/${n}`; $('igCount').hidden = n<2;
-    [...D.children].forEach((d,j)=>d.classList.toggle('on', j===k)); };
+    [...D.children].forEach((d,j)=>d.classList.toggle('on', j===k));
+    $('igPrev').hidden = k<=0; $('igNext').hidden = k>=n-1; };
   T.onscroll = mark;
   requestAnimationFrame(()=>{ T.scrollLeft = (at||0) * T.clientWidth; mark(); });
   $('igClose').focus();
@@ -953,6 +990,14 @@ function closeIg(){ igOpen = false; $('ig').hidden = true; $('igTrack').textCont
 $('igClose').onclick = () => { if(history.state && history.state.ig) history.back(); else closeIg(); };
 $('igMore').onclick = () => { $('igCap').classList.remove('clamp'); $('igMore').hidden = true; };
 $('igBtn').onclick = () => openIg(st.cur);
+const igStep = d => { const T = $('igTrack'); T.scrollTo({ left: (Math.round(T.scrollLeft/Math.max(1,T.clientWidth)) + d) * T.clientWidth, behavior:'smooth' }); };
+$('igPrev').onclick = () => igStep(-1); $('igNext').onclick = () => igStep(1);
+// mouse drag to swipe on PC
+(()=>{ const T = $('igTrack'); let sx = null;
+  T.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse'){ sx = e.clientX; e.preventDefault(); } });
+  window.addEventListener('pointerup',e=>{ if(sx==null) return; const dx = e.clientX - sx; sx = null; if(Math.abs(dx) > 30) igStep(dx<0 ? 1 : -1); });
+})();
+document.addEventListener('keydown',e=>{ if(!igOpen) return; if(e.key==='ArrowRight') igStep(1); else if(e.key==='ArrowLeft') igStep(-1); });
 
 // ---------- photos ----------
 function loadImg(src){ return new Promise((ok,no)=>{ const im = new Image(); im.onload=()=>ok(im); im.onerror=no; im.src=src; }); }
@@ -984,6 +1029,8 @@ syncInputs();
 $('place').addEventListener('input',e=>{ st.place=e.target.value; scheduleRender(); });
 $('memo').addEventListener('input',e=>{ st.memo=e.target.value; scheduleSave(); });
 $('handle').addEventListener('input',e=>{ st.handle=e.target.value; LS.set('cm.handle',st.handle); scheduleRender(); });
+$('addr').addEventListener('input',e=>{ st.addr=e.target.value; scheduleRender(); });
+$('showAddr').addEventListener('change',e=>{ st.style.showAddr=e.target.checked; saveStyle(); renderEditor(); });
 $('showHandle').addEventListener('change',e=>{ st.style.showHandle=e.target.checked; saveStyle(); scheduleRender(); });
 document.querySelectorAll('input[name=tpl]').forEach(r=>{
   r.addEventListener('change',()=>{ st.tpl=r.value; LS.set('cm.tpl',st.tpl); renderEditor(); });
@@ -1265,6 +1312,7 @@ $('infoAdd').onclick = ()=>{
   const menu = picked.filter(([k])=>k==='메뉴').map(([,v])=>v);
   const rows = picked.filter(([k])=>k!=='메뉴' && k!=='상호').map(([k,v])=>`${k}: ${v}`);
   if(menu.length) rows.push('메뉴: ' + menu.join(' / '));
+  const pa = picked.find(([k])=>k==='주소'); if(pa && !st.addr.trim()){ st.addr = pa[1]; $('addr').value = st.addr; scheduleRender(); }
   let cap = st.caption || $('caption').value || '';
   const ls = cap.split('\n'), pin = ls.findIndex(l=>l.trim().startsWith('📍'));
   if(pin >= 0){ let at = pin+1; while(at < ls.length && ls[at].trim() && !ls[at].trim().startsWith('#')) at++; ls.splice(at,0,...rows); cap = ls.join('\n'); }
@@ -1289,8 +1337,8 @@ function addMsg(role,text,note){
 function chatPrompt(req){
   const S = st.style;
   const now = {
-    tpl: st.tpl, place: st.place, memo: st.memo, currentSlide: st.cur,
-    style: { showHandle:S.showHandle, textY:S.textY, shade:S.shade, coverScale:S.coverScale, tone:S.tone, roles:S.roles },
+    tpl: st.tpl, place: st.place, memo: st.memo, addr: st.addr, currentSlide: st.cur,
+    style: { showHandle:S.showHandle, showAddr:!!S.showAddr, textY:S.textY, shade:S.shade, coverScale:S.coverScale, tone:S.tone, roles:S.roles },
     cover: st.cover,
     slides: st.slides.slice(1).map((s,k)=>({ i:k+1, en_title:s.en_title, en_sub:s.en_sub, ko_title:s.ko_title, ko1:s.ko1, ko2:s.ko2 })),
     slideRoles: st.slides.map((s,i)=>s.ov ? { i, roles:s.ov } : null).filter(Boolean),
@@ -1302,7 +1350,7 @@ function chatPrompt(req){
 현재 상태(JSON). currentSlide는 사용자가 지금 보고 있는 장 번호(0=표지):
 ${JSON.stringify(now)}
 
-글씨 파트(roles) 4개: t=큰 제목, k=윗줄(표지 윗줄·영문 소제목), b=작은 설명, h=핸들
+글씨 파트(roles) 4개: t=큰 제목, k=윗줄(표지 윗줄·영문 소제목), b=작은 설명, a=주소(본문 장 번호 옆), h=핸들
 각 파트 설정: font(아래 목록 중 하나), color("#rrggbb" 또는 null=템플릿 기본), size(0.6~1.6, 조금=0.1, 많이=0.25씩),
   stroke(글씨 테두리 획 두께 px, 0=없음, 0~16, 보통 4, 굵게 8), strokeColor("#rrggbb", 기본 #111111),
   shadow(그림자 세기 0~3, 0=없음, 기본 1, 진하게 2)
@@ -1312,6 +1360,7 @@ font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 - style.roles: 모든 장에 적용. 예: {"t":{"color":"#ffe58a"}}
 - slideRoles: 특정 장만 다르게. [{"i":장 번호(0=표지, 1부터 본문), "roles":{"t":{"color":"#111111"}}}]. "이 장", "지금 장"은 currentSlide. 그 장의 따로 설정을 없애려면 "roles":null
 - style.showHandle: 핸들(@계정) 표시 true/false
+- style.showAddr: 본문 장 번호 옆 주소 표시 true/false. addr: 기본 주소 문자열. 장마다 다른 주소는 slides의 addr 필드
 - style.textY: 글씨 묶음 세로 위치(px, 이미지 높이 1350). 음수=위로. -300~150 (조금=40, 많이=100씩)
 - style.shade: 사진 아래쪽 어둡게 하는 정도 0.3~1.6 (기본 1)
 - style.coverScale: 표지(썸네일) 제목만 키우는 배수 0.8~2.2 (기본 1.45, 조금=0.15, 많이=0.3씩)
@@ -1336,7 +1385,7 @@ ${hist || '(없음)'}
 사용자 요청: ${req}
 
 JSON 하나만 답한다:
-{"reply":"", "style":{}, "slideRoles":[], "tpl":null, "place":null, "memo":null, "cover":{}, "slides":[], "caption":null, "regen":false}`;
+{"reply":"", "style":{}, "slideRoles":[], "tpl":null, "place":null, "memo":null, "addr":null, "cover":{}, "slides":[], "caption":null, "regen":false}`;
 }
 const RANGE = { textY:[-300,150], shade:[.3,1.6], coverScale:[.8,2.2], size:[.6,1.6], stroke:[0,16], shadow:[0,3] };
 const clampTo = (k,v,fb) => { const r = RANGE[k]; v = Number(v); if(!isFinite(v)) return fb; return Math.round(Math.min(r[1], Math.max(r[0], v))*100)/100; };
@@ -1356,6 +1405,8 @@ function applyPatch(p){
   const sp = p.style || {};
   for(const k of ['textY','shade','coverScale']) if(sp[k]!=null) st.style[k] = clampTo(k, sp[k], st.style[k]);
   if(typeof sp.showHandle==='boolean') st.style.showHandle = sp.showHandle;
+  if(typeof sp.showAddr==='boolean') st.style.showAddr = sp.showAddr;
+  if(typeof p.addr==='string') st.addr = p.addr.slice(0,120);
   if(typeof sp.tone==='string') st.style.tone = sp.tone.slice(0,80);
   if(sp.roles && typeof sp.roles==='object') for(const r of ROLE_KEYS) Object.assign(st.style.roles[r], cleanRole(sp.roles[r], st.style.roles[r]));
   saveStyle();
@@ -1368,6 +1419,7 @@ function applyPatch(p){
   if(p.tpl && DRAW[p.tpl] && p.tpl!==st.tpl){ st.tpl = p.tpl; LS.set('cm.tpl',st.tpl); }
   if(typeof p.place==='string' && p.place.trim()) st.place = p.place.trim();
   if(typeof p.memo==='string') st.memo = p.memo.slice(0,400);
+  if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(s && typeof x.addr==='string') s.addr = x.addr.slice(0,120); });
   if(p.cover && typeof p.cover==='object') for(const k of ['kicker','title','sub','hook']) if(typeof p.cover[k]==='string') st.cover[k]=p.cover[k];
   if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(!s || Number(x.i)<1) return;
     for(const k of TEXT_KEYS) if(typeof x[k]==='string') s[k]=x[k]; });
@@ -1409,7 +1461,12 @@ async function exportBlobs(){
   }
   return out;
 }
+var readyFiles = null; // var: scheduleSave may touch it before this line runs
 $('saveBtn').onclick = async ()=>{
+  if(readyFiles){ const files = readyFiles; readyFiles = null;
+    try { await navigator.share({ files }); $('saveStatus').textContent = '공유 창에서 "이미지 저장"을 누르세요.'; }
+    catch(e){ $('saveStatus').textContent = e?.name==='AbortError' ? '' : '저장하지 못했어요: ' + (e?.message||e?.name); }
+    return; }
   const S = $('saveStatus'), b = $('saveBtn'); b.disabled = true; S.textContent='만드는 중…'; S.dataset.busy = '1';
   try {
     const blobs = await exportBlobs(), base = safeName();
@@ -1423,12 +1480,20 @@ $('saveBtn').onclick = async ()=>{
       S.textContent = `${blobs.length}장 저장했어요.`;
     } else {
       const files = blobs.map((bl,i)=>new File([bl],names[i],{type:'image/jpeg'}));
-      if(navigator.canShare && navigator.canShare({files})){
-        await navigator.share({ files }); S.textContent = '공유 창에서 "이미지 저장"을 누르세요.';
-      } else {
-        files.forEach(f=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); });
-        S.textContent = `${files.length}장 내려받았어요.`;
-      }
+      const download = async () => {
+        for(const f of files){ const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name; document.body.append(a); a.click(); a.remove();
+          setTimeout(()=>URL.revokeObjectURL(a.href),8000); await new Promise(ok=>setTimeout(ok,250)); }
+        S.textContent = `${files.length}장 내려받았어요. (다운로드 폴더)`;
+      };
+      // phones: share sheet → "이미지 저장". PC: plain downloads (PC share sheets often refuse files)
+      const phone = matchMedia('(pointer:coarse)').matches;
+      if(phone && navigator.canShare && navigator.canShare({files})){
+        try { await navigator.share({ files }); S.textContent = '공유 창에서 "이미지 저장"을 누르세요.'; }
+        catch(e){ if(e?.name==='AbortError') throw e;
+          // the tap "expired" while images were being made: keep them and share on the next tap
+          if(e?.name==='NotAllowedError'){ readyFiles = files; S.textContent = '다 만들었어요. 저장 버튼을 한 번 더 눌러 주세요.'; return; }
+          await download(); }
+      } else await download();
     }
   } catch(e){ if(e?.name!=='AbortError') S.textContent = '저장하지 못했어요: ' + (e?.code||e?.message||'알 수 없는 오류'); else S.textContent=''; }
   finally { b.disabled = !st.slides.length; delete S.dataset.busy; }
@@ -1463,6 +1528,7 @@ const DB = {
 st.pid = LS.get('cm.pid') || null;
 let saveTimer = null, saving = false, saveAgain = false, loading = false;
 function scheduleSave(){
+  readyFiles = null;
   if(loading || st.sample || !st.slides.length) return;
   clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1000);
 }
@@ -1481,8 +1547,8 @@ async function saveNow(){
     const now = Date.now();
     await DB.put(
       { id: st.pid, name: st.place.trim() || '이름 없는 작업', updated: now, count: st.slides.length, thumb: tc.toDataURL('image/jpeg',.7) },
-      { id: st.pid, place: st.place, memo: st.memo, tpl: st.tpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES,
-        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
+      { id: st.pid, place: st.place, memo: st.memo, addr: st.addr, tpl: st.tpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES,
+        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, addr: s.addr||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
     );
     if(page===2 && !$('saveStatus').dataset.busy) $('saveStatus').textContent = `자동 저장 ${hhmm(now).split(' ')[1]}`;
   } catch(e){ if(page===2) $('saveStatus').textContent = '자동 저장 실패'; }
@@ -1501,12 +1567,12 @@ async function openProject(id){
       const url = URL.createObjectURL(new Blob([x.buf],{type:'image/jpeg'}));
       try {
         const s = newSlide(await shrink(await loadImg(url), 1800));
-        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf });
+        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '' });
         TEXT_KEYS.forEach(k=>s[k] = x[k] || ''); slides.push(s);
       } finally { URL.revokeObjectURL(url); }
     }
     st.pid = id; LS.set('cm.pid', id);
-    st.place = d.place || ''; st.memo = d.memo || ''; st.tpl = d.tpl || st.tpl; LS.set('cm.tpl', st.tpl);
+    st.place = d.place || ''; st.memo = d.memo || ''; st.addr = d.addr || ''; st.tpl = d.tpl || st.tpl; LS.set('cm.tpl', st.tpl);
     if(d.style){ const s0 = STYLE0(); st.style = { ...s0, ...d.style, roles:{ ...s0.roles, ...(d.style.roles||{}) } }; saveStyle(); }
     st.cover = d.cover || { kicker:'', title:'', sub:'', hook:'' };
     st.caption = d.caption || ''; $('caption').value = st.caption;
@@ -1521,7 +1587,7 @@ async function openProject(id){
 async function newProject(){
   if(saveTimer) await saveNow();
   st.pid = null; LS.del('cm.pid');
-  st.place = ''; st.memo = ''; st.cover = { kicker:'', title:'', sub:'', hook:'' }; st.caption = ''; $('caption').value = '';
+  st.place = ''; st.memo = ''; st.addr = ''; st.cover = { kicker:'', title:'', sub:'', hook:'' }; st.caption = ''; $('caption').value = '';
   st.slides = []; st.cur = 0; st.sample = false; RES = null; showResearch();
   syncInputs(); renderEditor(); renderProjects(); window.scrollTo(0,0); $('place').focus();
 }
