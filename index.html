@@ -222,6 +222,7 @@ body.p2{overflow:hidden;padding-bottom:0}
   .order{grid-template-columns:repeat(5,1fr)}
   .igPost{max-width:520px}
 }
+@media (max-width:480px){.wide{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -281,6 +282,7 @@ body.p2{overflow:hidden;padding-bottom:0}
       <button type="button" data-go="2" aria-current="page">② 편집</button>
     </nav>
     <div class="row" style="gap:6px;flex-wrap:nowrap">
+      <button type="button" class="sm" id="undoBtn" disabled aria-label="되돌리기" title="되돌리기 (Ctrl+Z)" style="min-width:40px">↶<span class="wide"> 되돌리기</span></button>
       <button type="button" class="sm" id="aiStop" hidden>멈추기</button>
       <button type="button" class="primary sm" id="aiBtn">AI 문구 채우기</button>
     </div>
@@ -449,7 +451,7 @@ const LS = {
 const $ = id => document.getElementById(id);
 
 // ---------- state ----------
-const ROLE0 = () => ({ font:'auto', color:null, size:1, stroke:0, strokeColor:'#111111', shadow:1 });
+const ROLE0 = () => ({ font:'auto', color:null, size:1, stroke:0, strokeColor:'#111111', shadow:1, y:0 });
 const STROKE_SW = ['#111111','#ffffff','#ff8fa8','#ffe58a','#7a4b3a'];
 const STYLE0 = () => ({ showHandle:true, showAddr:false, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), a:ROLE0(), h:ROLE0() } });
 function loadStyle(){
@@ -529,6 +531,7 @@ function txt(ctx,str,x,y,o){
   const rs = o.role ? RS(o.role) : null;
   let s = o.size * (rs ? rs.size : 1);
   if(!o.fixed) y += st.style.textY;
+  if(rs) y += +rs.y || 0; // this part's own height
   const custom = rs && rs.font && rs.font!=='auto';
   const fam = custom ? `${rs.font},${F.ko}` : (o.fam||F.ko);
   const italic = o.italic && !custom;
@@ -670,6 +673,7 @@ function field(obj,key,label,multi,idp){
   return el('label',{class:'f'},[label,inp]);
 }
 const PCT = v => Math.round(v*100) + '%';
+const UPDOWN = v => v===0 ? '0 기본' : (v<0 ? `위 ${-v}` : `아래 ${v}`);
 const PX = v => (v>0 ? '+' : '') + Math.round(v) + 'px';
 // range input with its current number shown on the right
 function rangeRow(id,label,val,min,max,step,fmt,onInput){
@@ -717,6 +721,7 @@ function roleEditor(target, isOv, idp){
     const sizeRow = rangeRow(`${idp}-${r}-size`,'크기',cur().size,.6,1.6,.05,PCT,v=>live('size',v));
     const strokeRow = rangeRow(`${idp}-${r}-stroke`,'획 두께',cur().stroke||0,0,16,1,v=>v?v+'px':'없음',v=>{ live('stroke',v); skBox.hidden = !v; });
     const shadowRow = rangeRow(`${idp}-${r}-shadow`,'그림자',cur().shadow ?? 1,0,3,.1,v=>v?PCT(v):'없음',v=>live('shadow',v));
+    const yRow = rangeRow(`${idp}-${r}-y`,'높이',cur().y||0,-400,400,5,UPDOWN,v=>live('y',v));
     const skBox = el('div',{class:'sw'}); skBox.hidden = !(cur().stroke>0);
     const paintSk = () => {
       skBox.textContent = ''; const c = cur().strokeColor || '#111111';
@@ -740,7 +745,7 @@ function roleEditor(target, isOv, idp){
     paint();
     box.append(el('div',{class:'role'},[
       el('div',{class:'rh'},[el('b',{text:name}), sel]),
-      sizeRow, sw, strokeRow, skBox, shadowRow
+      sizeRow, yRow, sw, strokeRow, skBox, shadowRow
     ]));
   });
   return box;
@@ -847,7 +852,7 @@ function renderStyleTab(){
   P.append(el('div',{class:'lbl',text:'표지 제목 크기 (썸네일용)'}));
   P.append(slider(st.style,'coverScale','표지 제목',.8,2.2,.05,'gs',saveStyle));
   P.append(el('div',{class:'lbl',text:'글씨 위치·사진 어둡기 (모든 장)'}));
-  P.append(slider(st.style,'textY','글씨 위치',-300,150,5,'gs',saveStyle,v=>v===0?'0 기본':(v<0?`위 ${-v}`:`아래 ${v}`)));
+  P.append(slider(st.style,'textY','글씨 전체 위치',-300,150,5,'gs',saveStyle,UPDOWN));
   P.append(slider(st.style,'shade','어둡기',.3,1.6,.05,'gs',saveStyle));
 }
 function renderThumbs(){
@@ -1353,7 +1358,8 @@ ${JSON.stringify(now)}
 글씨 파트(roles) 4개: t=큰 제목, k=윗줄(표지 윗줄·영문 소제목), b=작은 설명, a=주소(본문 장 번호 옆), h=핸들
 각 파트 설정: font(아래 목록 중 하나), color("#rrggbb" 또는 null=템플릿 기본), size(0.6~1.6, 조금=0.1, 많이=0.25씩),
   stroke(글씨 테두리 획 두께 px, 0=없음, 0~16, 보통 4, 굵게 8), strokeColor("#rrggbb", 기본 #111111),
-  shadow(그림자 세기 0~3, 0=없음, 기본 1, 진하게 2)
+  shadow(그림자 세기 0~3, 0=없음, 기본 1, 진하게 2),
+  y(그 파트만 세로 위치 px, 음수=위로, -400~400, 조금=20, 많이=60씩. 글씨 전체를 옮길 땐 style.textY)
 font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 
 바꿀 수 있는 것 (이것 말고는 못 바꾼다)
@@ -1387,7 +1393,7 @@ ${hist || '(없음)'}
 JSON 하나만 답한다:
 {"reply":"", "style":{}, "slideRoles":[], "tpl":null, "place":null, "memo":null, "addr":null, "cover":{}, "slides":[], "caption":null, "regen":false}`;
 }
-const RANGE = { textY:[-300,150], shade:[.3,1.6], coverScale:[.8,2.2], size:[.6,1.6], stroke:[0,16], shadow:[0,3] };
+const RANGE = { textY:[-300,150], shade:[.3,1.6], coverScale:[.8,2.2], size:[.6,1.6], stroke:[0,16], y:[-400,400], shadow:[0,3] };
 const clampTo = (k,v,fb) => { const r = RANGE[k]; v = Number(v); if(!isFinite(v)) return fb; return Math.round(Math.min(r[1], Math.max(r[0], v))*100)/100; };
 function cleanRole(src, base){
   const out = {};
@@ -1398,6 +1404,7 @@ function cleanRole(src, base){
   if(src.size!=null) out.size = clampTo('size', src.size, base?.size ?? 1);
   if(src.stroke!=null) out.stroke = Math.round(clampTo('stroke', src.stroke, base?.stroke ?? 0));
   if(typeof src.strokeColor==='string' && /^#[0-9a-f]{6}$/i.test(src.strokeColor)) out.strokeColor = src.strokeColor.toLowerCase();
+  if(src.y!=null) out.y = Math.round(clampTo('y', src.y, base?.y ?? 0));
   if(src.shadow!=null) out.shadow = clampTo('shadow', src.shadow, base?.shadow ?? 1);
   return out;
 }
@@ -1499,6 +1506,44 @@ $('saveBtn').onclick = async ()=>{
   finally { b.disabled = !st.slides.length; delete S.dataset.busy; }
 };
 
+// ---------- undo: snapshots of everything editable (photos kept by reference) ----------
+const UNDO = { stack:[], last:null, timer:null, busy:false };
+function undoSnap(){
+  return { refs: st.slides.slice(), j: JSON.stringify({ place:st.place, memo:st.memo, addr:st.addr, tpl:st.tpl, style:st.style, cover:st.cover, caption:st.caption,
+    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, ov:s.ov, addr:s.addr||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
+}
+function undoBtnSync(){ $('undoBtn').disabled = !UNDO.stack.length; }
+function undoMark(){ if(UNDO.busy || loading || st.sample) return; clearTimeout(UNDO.timer); UNDO.timer = setTimeout(undoCommit, 500); }
+function undoCommit(){
+  clearTimeout(UNDO.timer); UNDO.timer = null;
+  if(loading || st.sample) return;
+  const n = undoSnap();
+  if(UNDO.last && n.j !== UNDO.last.j){ UNDO.stack.push(UNDO.last); if(UNDO.stack.length > 40) UNDO.stack.shift(); }
+  UNDO.last = n; undoBtnSync();
+}
+function undoReset(){ clearTimeout(UNDO.timer); UNDO.stack = []; UNDO.last = st.sample ? null : undoSnap(); undoBtnSync(); }
+function undo(){
+  if(UNDO.timer) undoCommit();
+  const prev = UNDO.stack.pop(); if(!prev){ undoBtnSync(); return; }
+  const d = JSON.parse(prev.j), byId = new Map(prev.refs.map(s=>[s.id,s]));
+  UNDO.busy = true;
+  try {
+    Object.assign(st, { place:d.place, memo:d.memo, addr:d.addr, tpl:d.tpl, style:d.style, cover:d.cover, caption:d.caption });
+    st.slides = d.s.map(x=>{ const s = byId.get(x.id); const { id, ...rest } = x; return Object.assign(s, rest); }).filter(Boolean);
+    st.cur = Math.max(0, Math.min(st.cur, st.slides.length-1));
+    saveStyle(); LS.set('cm.tpl', st.tpl); $('caption').value = st.caption;
+    styleScope = curSlide()?.ov ? 'one' : 'all';
+    syncInputs(); renderEditor();
+  } finally { UNDO.busy = false; }
+  UNDO.last = prev; undoBtnSync(); scheduleSave(); clearTimeout(UNDO.timer); UNDO.timer = null;
+  $('aiStatus').classList.remove('err'); $('aiStatus').textContent = '한 단계 되돌렸어요.';
+  setTimeout(()=>{ if($('aiStatus').textContent==='한 단계 되돌렸어요.') $('aiStatus').textContent=''; }, 1800);
+}
+$('undoBtn').onclick = undo;
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey) && !e.shiftKey && e.key.toLowerCase()==='z' && page===2 && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName||'')){ e.preventDefault(); undo(); }
+});
+
 // ---------- saved projects (IndexedDB on this phone) ----------
 const DB = {
   db: null,
@@ -1528,6 +1573,7 @@ const DB = {
 st.pid = LS.get('cm.pid') || null;
 let saveTimer = null, saving = false, saveAgain = false, loading = false;
 function scheduleSave(){
+  undoMark();
   readyFiles = null;
   if(loading || st.sample || !st.slides.length) return;
   clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1000);
@@ -1581,7 +1627,7 @@ async function openProject(id){
     styleScope = curSlide()?.ov ? 'one' : 'all';
     syncInputs();
   } finally { loading = false; }
-  renderEditor(); renderProjects();
+  renderEditor(); renderProjects(); undoReset();
   return true;
 }
 async function newProject(){
@@ -1589,7 +1635,7 @@ async function newProject(){
   st.pid = null; LS.del('cm.pid');
   st.place = ''; st.memo = ''; st.addr = ''; st.cover = { kicker:'', title:'', sub:'', hook:'' }; st.caption = ''; $('caption').value = '';
   st.slides = []; st.cur = 0; st.sample = false; RES = null; showResearch();
-  syncInputs(); renderEditor(); renderProjects(); window.scrollTo(0,0); $('place').focus();
+  syncInputs(); renderEditor(); renderProjects(); undoReset(); window.scrollTo(0,0); $('place').focus();
 }
 $('newProj').onclick = newProject;
 async function renderProjects(){
