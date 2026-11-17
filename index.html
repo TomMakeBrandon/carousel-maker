@@ -1156,11 +1156,15 @@ const b64 = blob => new Promise(ok=>{ const r=new FileReader(); r.onload=()=>ok(
 
 async function gemini(parts, signal, extra={}){
   if(!GEM.key) throw { code:'nokey' };
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEM.model)}:generateContent`,{
+  const go = () => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEM.model)}:generateContent`,{
     method:'POST', signal,
     headers:{ 'Content-Type':'application/json', 'x-goog-api-key': GEM.key },
     body: JSON.stringify({ contents:[{ role:'user', parts }], ...extra })
   });
+  let r;
+  try { r = await go(); }
+  catch(e){ if(isCancel(e)) throw e; await new Promise(ok=>setTimeout(ok,1500)); if(signal?.aborted) throw e;
+    try { r = await go(); } catch(e2){ if(isCancel(e2)) throw e2; throw { code:'network' }; } }
   const j = await r.json().catch(()=>({}));
   if(r.status===404) throw { code:'gemini', message:`모델 "${GEM.model}"을 찾지 못했어요. 설정에서 모델 이름을 확인해 주세요.` };
   if(r.status===400 || r.status===403) throw { code:'gemini', message:'API 키나 요청을 확인해 주세요. (' + (j.error?.message||r.status) + ')' };
@@ -1178,6 +1182,7 @@ async function aiJSON(prompt, blobs, signal){
 const ERR = {
   not_granted:'Claude 사용을 허용하지 않아서 문구를 만들 수 없어요.', rate_limited:'요청이 많아요. 잠시 뒤 다시 해 주세요.',
   invalid_json:'답을 읽지 못했어요. 한 번 더 해 주세요.', nokey:'설정에서 Gemini API 키를 넣어 주세요.',
+  network:'인터넷 연결이 끊겼어요. 기다리는 동안 화면을 끄거나 다른 앱으로 가면 끊길 수 있어요. 와이파이나 신호 좋은 곳에서 다시 눌러 주세요.',
   image_rejected:'사진 중 보낼 수 없는 파일이 있어요.', sampling_disabled:'이 계정에서는 Claude 호출을 쓸 수 없어요.'
 };
 const errText = e => ERR[e?.code] || (e?.message ? `실패: ${e.message}` : '잘 안 됐어요. 다시 해 주세요.');
@@ -1304,7 +1309,8 @@ async function runCopy(onStep){
     onStep?.('② 사진 준비하는 중…'); progStage(PROG.p, PROG.p+5, 3);
     let max = n;
     if(sampleFn){ try { const lim = await sampleFn.limits(); max = lim.images ? Math.min(n, lim.images.maxCount) : 0; } catch(e){ max = 0; } }
-    const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img)));
+    const side = max > 10 ? 640 : max > 5 ? 800 : 1024; // keep the upload small on phones
+    const imgs = await Promise.all(st.slides.slice(0,max).map(s=>blobOf(s.img,side)));
     onStep?.('③ 사진 보고 문구·캡션 쓰는 중… (30초~1분)'); progStage(PROG.p, 97, 25 + 4*n);
     out = await aiJSON(buildPrompt(n,max), imgs, signal);
     ok = true;
