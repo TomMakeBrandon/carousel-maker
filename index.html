@@ -487,13 +487,13 @@ let styleScope = 'all'; // 'all' | 'one'
 const FIELDS = {
   cover: {
     yoon:   [['kicker','윗줄'],['title','장소 이름(큰 글씨)'],['sub','아랫줄 설명']],
-    tomato: [['kicker','윗줄'],['hook','제목 (두 줄은 줄바꿈)',1],['sub','부제 ( | 뒤 문구)']],
-    deon:   [['hook','제목 (두 줄은 줄바꿈)',1]]
+    tomato: [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','부제 ( | 뒤 문구)']],
+    deon:   [['hook','제목 (엔터로 줄바꿈)',1]]
   },
   inner: {
     yoon:   [['en_title','영문 제목'],['en_sub','영문 소제목'],['ko1','한글 1줄'],['ko2','한글 2줄']],
-    tomato: [['ko_title','제목 (두 줄은 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
-    deon:   [['ko_title','제목 (두 줄은 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']]
+    tomato: [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
+    deon:   [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']]
   }
 };
 
@@ -556,7 +556,14 @@ function txt(ctx,str,x,y,o){
   const wd = ctx.measureText(str).width; if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
   return wd;
 }
-const lines = (v,fb) => (v||fb||'').split('\n').map(t=>t.trim()).filter(Boolean).slice(0,2);
+// text split by Enter (up to 4 lines); fb is used when v is empty
+const lines = (v,fb) => (v||fb||'').split('\n').map(t=>t.trim()).filter(Boolean).slice(0,4);
+// draws a multi-line text so its LAST line sits at yLast (lines stack upward). returns first-line y, line count, widest width
+function mlUp(ctx,str,x,yLast,o,lh,pre=''){
+  const L = lines(str); let w = 0;
+  L.forEach((t,k)=>{ w = Math.max(w, txt(ctx,pre+t,x,yLast-(L.length-1-k)*lh,o)); });
+  return { first: yLast-(Math.max(L.length,1)-1)*lh, n: L.length, w };
+}
 const W90 = 'rgba(255,255,255,.9)', W80 = 'rgba(255,255,255,.8)';
 const SPARK = ' ˚₊‧';
 const coverK = i => i===0 ? (+st.style.coverScale || 1) : 1; // cover title is bigger, like a thumbnail
@@ -567,19 +574,24 @@ const DRAW = {
     const T = sz('t')*CS, K = sz('k'), B = sz('b');
     if(i===0){
       grad(ctx,.4,.66);
-      txt(ctx,c.kicker,72,1094-84*T,{size:28*KS,color:W90,role:'k'});
-      txt(ctx,(c.title||st.place).replace(/\n/g,' '),72,1094,{size:76*CS,weight:800,role:'t'});
-      txt(ctx,c.sub,72,1094+56*B*KS,{size:26*KS,color:W80,role:'b'});
+      const lhB = 36*B*KS, nS = lines(c.sub).length;
+      const tLast = 1094 - Math.max(0,nS-1)*lhB; // more sub lines push the title up
+      mlUp(ctx,c.sub,72,1094+56*B*KS,{size:26*KS,color:W80,role:'b'},lhB);
+      const t = mlUp(ctx,c.title||st.place,72,tLast,{size:76*CS,weight:800,role:'t'},84*T);
+      mlUp(ctx,c.kicker,72,t.first-84*T,{size:28*KS,color:W90,role:'k'},38*K*KS);
     } else {
       grad(ctx,.5,.6);
-      const dy = st.style.textY, top = 1038 - 166*T;
+      const lhB = 42*B, body = [...lines(s.ko1), ...lines(s.ko2)].slice(0,4), nb = Math.max(2, body.length);
+      const bottom = 1038+54*K+106*B, bFirst = bottom-(nb-1)*lhB;
+      body.forEach((t,k)=>txt(ctx,t,74,bFirst+k*lhB,{size:28,color:W90,role:'b'}));
+      const up = (nb-2)*lhB;
+      const sub = mlUp(ctx,(s.en_sub||'').toUpperCase(),74,1038+54*K-up,{size:27,weight:500,fam:F.en,color:W90,ls:1,role:'k'},36*K);
+      const tLast = sub.n ? sub.first-54*K : 1038-up;
+      const t = mlUp(ctx,(s.en_title||'').toUpperCase(),72,tLast,{size:50,weight:800,fam:F.en,ls:1,role:'t'},58*T);
+      const dy = st.style.textY, top = t.first - 166*T;
       shadow(ctx,null); ctx.fillStyle='#fff'; ctx.fillRect(72,top+dy,88,88);
       txt(ctx,String(i).padStart(2,'0'),116,top+60+dy,{size:44,weight:800,fam:F.en,color:'#111',align:'center',fixed:true,noShadow:true});
       txt(ctx,addrTxt(s),184,top+54,{size:28,weight:500,color:W90,maxW:W-184-72,role:'a'});
-      txt(ctx,(s.en_title||'').toUpperCase(),72,1038,{size:50,weight:800,fam:F.en,ls:1,role:'t'});
-      txt(ctx,(s.en_sub||'').toUpperCase(),74,1038+54*K,{size:27,weight:500,fam:F.en,color:W90,ls:1,role:'k'});
-      txt(ctx,s.ko1,74,1038+54*K+64*B,{size:28,color:W90,role:'b'});
-      txt(ctx,s.ko2,74,1038+54*K+106*B,{size:28,color:W90,role:'b'});
     }
     txt(ctx,handleTxt(),W/2,1312,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
   },
@@ -589,16 +601,17 @@ const DRAW = {
     txt(ctx,handleTxt(),W/2,52,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
     grad(ctx,i===0?.36:.42,.72);
     if(i===0){
-      const L = lines(c.hook, c.title||st.place), lh = 82*T, last = 1284 - 70*B*KS;
+      const lhB = 34*B*KS, sb = mlUp(ctx,c.sub,74,1284,{size:24*KS,weight:500,color:W90,role:'b'},lhB,'|  ');
+      const last = 1284 - 70*B*KS - Math.max(0,sb.n-1)*lhB, lh = 82*T;
+      const L = lines(c.hook, c.title||st.place);
       L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:66*CS,weight:800,role:'t'}));
-      txt(ctx,c.kicker,74,last-(L.length-1)*lh-(60*T+24*K*KS),{size:27*KS,weight:500,color:W90,role:'k'});
-      if(c.sub) txt(ctx,'|  '+c.sub,74,1284,{size:24*KS,weight:500,color:W90,role:'b'});
+      mlUp(ctx,c.kicker,74,last-(L.length-1)*lh-(60*T+24*K*KS),{size:27*KS,weight:500,color:W90,role:'k'},36*K*KS);
     } else {
-      const L = lines(s.ko_title), lh = 68*T, last = 1270 - 74*B;
+      const lhB = 34*B, d = [s.ko1,s.ko2].filter(Boolean).join(' ');
+      const db = mlUp(ctx,d,74,1270,{size:24,weight:500,color:W90,role:'b'},lhB,'|  ');
+      const L = lines(s.ko_title), lh = 68*T, last = 1270 - 74*B - Math.max(0,db.n-1)*lhB;
       L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:54,weight:800,role:'t'}));
       txt(ctx,addrTxt(s,'📍 '),74,last-(L.length-1)*lh-58*T,{size:24,weight:500,color:W90,role:'a'});
-      const d = [s.ko1,s.ko2].filter(Boolean).join(' ');
-      if(d) txt(ctx,'|  '+d,74,1270,{size:24,weight:500,color:W90,role:'b'});
     }
   },
   deon(ctx,s,i,c){
@@ -606,7 +619,8 @@ const DRAW = {
     const T = sz('t')*CS, B = sz('b');
     grad(ctx,i===0?.3:.36,.72);
     const L = i===0 ? lines(c.hook, c.title||st.place) : lines(s.ko_title);
-    const last = i===0 ? 1170 : 1090, lh = 70*T;
+    const body = i>0 ? [...lines(s.ko1), ...lines(s.ko2)].slice(0,4) : [], lhB = 40*B;
+    const last = (i===0 ? 1170 : 1090) - Math.max(0,body.length-2)*lhB, lh = 70*T;
     L.forEach((t,k)=>{
       const y = last-(L.length-1-k)*lh;
       const w = txt(ctx,t,72,y,{size:52*CS,weight:700,maxW:W-220,role:'t'});
@@ -615,9 +629,8 @@ const DRAW = {
     const top = last-(L.length-1)*lh;
     txt(ctx,handleTxt(),72,top-66*T,{size:34,weight:500,fam:F.sc,italic:true,color:W90,role:'h'});
     if(i>0){
-      txt(ctx,s.ko1,74,last+60*B,{size:27,color:W90,role:'b'});
-      txt(ctx,s.ko2,74,last+100*B,{size:27,color:W90,role:'b'});
-      txt(ctx,addrTxt(s,'📍 '),74,last+150*B,{size:23,weight:500,color:W80,role:'a'});
+      body.forEach((t,k)=>txt(ctx,t,74,last+60*B+k*lhB,{size:27,color:W90,role:'b'}));
+      txt(ctx,addrTxt(s,'📍 '),74,last+60*B+(Math.max(2,body.length)-1)*lhB+50*B,{size:23,weight:500,color:W80,role:'a'});
     }
     txt(ctx,handleTxt(),W/2,1322,{size:18,weight:700,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
   }
@@ -673,9 +686,12 @@ function el(tag,attrs={},kids=[]){
 }
 function field(obj,key,label,multi,idp){
   const id = `${idp}-${key}`;
-  const inp = multi ? el('textarea',{id,rows:'2'}) : el('input',{id,type:'text',autocomplete:'off'});
+  // every text box takes Enter as a new line (address stays one line)
+  const inp = multi===false ? el('input',{id,type:'text',autocomplete:'off'}) : el('textarea',{id,rows:'1',class:'grow'});
   inp.value = obj[key]||'';
-  inp.addEventListener('input',()=>{ obj[key]=inp.value; scheduleRender(); });
+  const fit = () => { if(inp.tagName==='TEXTAREA') inp.rows = Math.min(4, Math.max(multi?2:1, inp.value.split('\n').length)); };
+  fit();
+  inp.addEventListener('input',()=>{ obj[key]=inp.value; fit(); scheduleRender(); });
   return el('label',{class:'f'},[label,inp]);
 }
 const PCT = v => Math.round(v*100) + '%';
