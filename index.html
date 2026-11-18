@@ -326,6 +326,8 @@ body.p2{overflow:hidden;padding-bottom:0}
           <label class="chip"><input type="radio" name="tpl" value="yoon">번호형</label>
           <label class="chip"><input type="radio" name="tpl" value="tomato">코스형</label>
           <label class="chip"><input type="radio" name="tpl" value="deon">감성형</label>
+          <label class="chip"><input type="radio" name="tpl" value="center">가운데형</label>
+          <label class="chip"><input type="radio" name="tpl" value="mag">매거진형</label>
         </div>
       </div>
       <div id="styleDyn" style="display:flex;flex-direction:column;gap:14px"></div>
@@ -488,12 +490,16 @@ const FIELDS = {
   cover: {
     yoon:   [['kicker','윗줄'],['title','장소 이름(큰 글씨)'],['sub','아랫줄 설명']],
     tomato: [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','부제 ( | 뒤 문구)']],
-    deon:   [['hook','제목 (엔터로 줄바꿈)',1]]
+    deon:   [['hook','제목 (엔터로 줄바꿈)',1]],
+    center: [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','아랫줄']],
+    mag:    [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','아랫줄 (➪ 뒤 문구)']]
   },
   inner: {
     yoon:   [['en_title','영문 제목'],['en_sub','영문 소제목'],['ko1','한글 1줄'],['ko2','한글 2줄']],
     tomato: [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
-    deon:   [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']]
+    deon:   [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
+    center: [['ko_title','이름·제목 (주소 켜면 옆에 | 주소)',1],['ko1','설명 1'],['ko2','설명 2']],
+    mag:    [['ko_title','이름·제목 (주소 켜면 옆에 | 주소)',1],['ko1','설명 1 (➪ 붙음)'],['ko2','설명 2']]
   }
 };
 
@@ -633,6 +639,58 @@ const DRAW = {
       txt(ctx,addrTxt(s,'📍 '),74,last+60*B+(Math.max(2,body.length)-1)*lhB+50*B,{size:23,weight:500,color:W80,role:'a'});
     }
     txt(ctx,handleTxt(),W/2,1322,{size:18,weight:700,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
+  },
+  // centered: small number before the name, "| address" after it, description centered under it
+  center(ctx,s,i,c){
+    const CS = coverK(i), KS = 1+(CS-1)*.4;
+    const T = sz('t')*CS, K = sz('k'), B = sz('b'), X = W/2;
+    txt(ctx,handleTxt(),X,70,{size:24,weight:500,fam:F.en,color:W90,align:'center',role:'h',fixed:true});
+    grad(ctx,i===0?.38:.45,.7);
+    if(i===0){
+      const lhB = 40*B*KS, sb = mlUp(ctx,c.sub,X,1250,{size:28*KS,weight:500,color:W90,align:'center',role:'b'},lhB);
+      const last = sb.n ? sb.first-80*B*KS : 1250, lh = 90*T;
+      const L = lines(c.hook, c.title||st.place);
+      L.forEach((t,k)=>txt(ctx,t,X,last-(L.length-1-k)*lh,{size:76*CS,weight:800,align:'center',role:'t'}));
+      mlUp(ctx,c.kicker,X,last-(L.length-1)*lh-(72*T+10*K),{size:30*KS,weight:500,color:W90,align:'center',role:'k'},40*K*KS);
+    } else {
+      const body = [...lines(s.ko1), ...lines(s.ko2)].slice(0,4), lhB = 50*B;
+      const bFirst = 1250-(Math.max(body.length,1)-1)*lhB;
+      body.forEach((t,k)=>txt(ctx,t,X,bFirst+k*lhB,{size:32,weight:700,align:'center',role:'b'}));
+      const L = lines(s.ko_title), lh = 76*T, last = body.length ? bFirst-84*B : 1250;
+      L.forEach((t,k)=>{
+        const y = last-(L.length-1-k)*lh, w = txt(ctx,t,X,y,{size:66,weight:800,align:'center',role:'t'});
+        if(k===0) txt(ctx,String(i),X-w/2-6,y-34*T,{size:26,weight:700,fam:F.en,align:'right',role:'t'});
+        if(k===L.length-1) txt(ctx,addrTxt(s,'| '),X+w/2+16,y,{size:28,weight:500,color:W90,role:'a',maxW:Math.max(120,W-60-(X+w/2+16))});
+      });
+    }
+  },
+  // magazine: bold handle on top, circled number + name + "| address", "➪ description" below
+  mag(ctx,s,i,c){
+    const CS = coverK(i), KS = 1+(CS-1)*.4;
+    const T = sz('t')*CS, K = sz('k'), B = sz('b');
+    txt(ctx,handleTxt(),W/2,92,{size:40,weight:800,fam:F.en,align:'center',role:'h',fixed:true});
+    grad(ctx,i===0?.38:.5,.66);
+    if(i===0){
+      const lhB = 40*B*KS, sb = mlUp(ctx,c.sub,66,1250,{size:30*KS,weight:500,color:W90,role:'b'},lhB,'➪ ');
+      const last = sb.n ? sb.first-70*B*KS : 1250, lh = 86*T;
+      const L = lines(c.hook, c.title||st.place);
+      L.forEach((t,k)=>txt(ctx,t,62,last-(L.length-1-k)*lh,{size:72*CS,weight:700,role:'t'}));
+      mlUp(ctx,c.kicker,66,last-(L.length-1)*lh-(70*T+8*K),{size:30*KS,weight:500,color:W90,role:'k'},40*K*KS);
+    } else {
+      const body = [...lines(s.ko1), ...lines(s.ko2)].slice(0,4), lhB = 46*B;
+      const bFirst = 1250-(Math.max(body.length,1)-1)*lhB;
+      body.forEach((t,k)=>txt(ctx,(k===0?'➪ ':'   ')+t,66,bFirst+k*lhB,{size:30,weight:500,role:'b'}));
+      const L = lines(s.ko_title), lh = 70*T, last = body.length ? bFirst-70*B : 1250;
+      const rt = RS('t'), oy = st.style.textY + (+rt.y||0);
+      L.forEach((t,k)=>{
+        const y = last-(L.length-1-k)*lh;
+        if(k===0){ const r = 24*T, cy = y + oy - 19*T; // circled number
+          shadow(ctx,'dark',.6); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(66+r,cy,r,0,Math.PI*2); ctx.fill(); shadow(ctx,null);
+          ctx.fillStyle='#111'; ctx.font = `800 ${Math.round(28*T)}px ${F.en}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(i),66+r,cy+1); ctx.textBaseline='alphabetic'; }
+        const x0 = 66+58*T, w = txt(ctx,t,x0,y,{size:56,weight:600,role:'t',maxW:W-x0-60});
+        if(k===L.length-1) txt(ctx,addrTxt(s,'|  '),x0+w+16,y-2,{size:24,weight:500,color:W90,role:'a',maxW:Math.max(120,W-60-(x0+w+16))});
+      });
+    }
   }
 };
 
@@ -651,7 +709,7 @@ function drawSlide(cv,s,i){
 // fonts: Google splits Korean faces by unicode range, so load with the real text
 let fontKey = '';
 async function ensureFonts(){
-  const all = [st.place, st.handle, st.addr, '📍', ...st.slides.map(s=>s.addr||''), SPARK, '0123456789|@', ...Object.values(st.cover),
+  const all = [st.place, st.handle, st.addr, '📍➪', ...st.slides.map(s=>s.addr||''), SPARK, '0123456789|@', ...Object.values(st.cover),
     ...st.slides.flatMap(s=>TEXT_KEYS.map(k=>s[k]))].join('');
   const fams = new Set(['"Noto Sans KR"','Montserrat','"Cormorant Garamond"']);
   const add = r => { if(r && r.font && r.font!=='auto') fams.add(r.font); };
@@ -858,7 +916,7 @@ function renderStyleTab(){
   const s = curSlide(); if(!s) return;
   P.append(el('div',{class:'lbl',text:'표지 템플릿'}));
   const ct = el('div',{class:'chips'});
-  [['','나머지 장과 같게'],['yoon','번호형'],['tomato','코스형'],['deon','감성형']].forEach(([v,l])=>{
+  [['','나머지 장과 같게'],['yoon','번호형'],['tomato','코스형'],['deon','감성형'],['center','가운데형'],['mag','매거진형']].forEach(([v,l])=>{
     const inp = el('input',{type:'radio',name:'coverTpl',value:v}); inp.checked = (st.coverTpl||'')===v;
     inp.onchange = () => { st.coverTpl = v; renderEditor(); };
     ct.append(el('label',{class:'chip'},[inp,l]));
@@ -1425,8 +1483,8 @@ font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 - style.shade: 사진 아래쪽 어둡게 하는 정도 0.3~1.6 (기본 1)
 - style.coverScale: 표지(썸네일) 제목만 키우는 배수 0.8~2.2 (기본 1.45, 조금=0.15, 많이=0.3씩)
 - style.tone: 문구 말투 요청(문자열). 예: "발랄하게", "반말로"
-- tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형) — 2번 장부터(표지는 coverTpl 없으면 같이)
-- coverTpl: 표지만 다른 템플릿. "yoon"|"tomato"|"deon", 같게 하려면 ""
+- tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형) | "center"(가운데형) | "mag"(매거진형) — 2번 장부터(표지는 coverTpl 없으면 같이)
+- coverTpl: 표지만 다른 템플릿. "yoon"|"tomato"|"deon"|"center"|"mag", 같게 하려면 ""
 - place: 장소 이름, memo: 장소 설명(지역·특징 등 사용자가 알려준 사실)
 - cover: {kicker, title, sub, hook} 중 바꿀 것만 (hook은 두 줄 제목, 줄바꿈 \\n)
 - slides: [{i: 본문 번호(1부터), 바꿀 필드만: en_title, en_sub, ko_title, ko1, ko2}]
