@@ -466,13 +466,16 @@ const ROLE0 = () => ({ font:'auto', color:null, size:1, stroke:0, strokeColor:'#
 const STROKE_SW = ['#111111','#ffffff','#ff8fa8','#ffe58a','#7a4b3a'];
 // logo stamp: pos 'top' | 'bottom', size = width share of the slide, x/y = nudge in px
 const LOGO0 = () => ({ on:false, pos:'top', size:.26, color:'#ffffff', x:0, y:0, op:1, cover:true });
-const STYLE0 = () => ({ logo:LOGO0(), showHandle:true, showAddr:false, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), a:ROLE0(), h:ROLE0() } });
+// blog profile circle: mode 'text' (letters like "y.") | 'image'
+const AVA0 = () => ({ mode:'text', text:'y.', bg:'#ffffff', fg:'#111111', ring:true });
+const STYLE0 = () => ({ avatar:AVA0(), logo:LOGO0(), showHandle:true, showAddr:false, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), a:ROLE0(), h:ROLE0() } });
 function loadStyle(){
   const s = STYLE0();
   try {
     const o = JSON.parse(LS.get('cm.style')||'{}');
     for(const k of ['showHandle','showAddr','textY','shade','tone','coverScale']) if(o[k]!=null) s[k]=o[k];
     if(o.logo) s.logo = { ...LOGO0(), ...o.logo };
+    if(o.avatar) s.avatar = { ...AVA0(), ...o.avatar };
     if(o.roles) for(const r of ROLE_KEYS) if(o.roles[r]) s.roles[r] = { ...ROLE0(), ...o.roles[r] };
     if(o.titleScale && !o.roles) s.roles.t.size = o.titleScale;
     if(o.textScale && !o.roles){ s.roles.b.size = o.textScale; s.roles.k.size = o.textScale; }
@@ -718,7 +721,7 @@ const DRAW = {
       tl.forEach((t,k)=>txt(ctx,t,PAD-10,118+k*68*T,o(52,{role:'t',maxW:W-2*PAD})));
       y = 118+(tl.length-1)*68*T + 80;
       const hd = handleTxt().replace(/^@/,'') || (st.place||'').trim();
-      ctx.fillStyle = '#6b1d24'; ctx.beginPath(); ctx.arc(PAD+26,y+30,36,0,Math.PI*2); ctx.fill();
+      drawAvatar(ctx,PAD+26,y+30,36);
       txt(ctx,hd,PAD+82,y+24,o(26,{fam:F.en,role:'h'}));
       txt(ctx,'방금 전 · 비공개',PAD+82,y+58,o(19,{color:GRAY}));
       y += 110; ctx.fillStyle = '#dddddd'; ctx.fillRect(PAD-50,y,W-2*PAD+100,2); y += 46;
@@ -829,6 +832,59 @@ function logoEditor(){
   return box;
 }
 
+// blog profile circle
+let AVA_IMG = null;
+function loadAva(url){ if(!url){ AVA_IMG = null; scheduleRender(); return; } const im = new Image(); im.onload = () => { AVA_IMG = im; scheduleRender(); }; im.src = url; }
+if(LS.get('cm.avatar')) loadAva(LS.get('cm.avatar'));
+function drawAvatar(ctx,cx,cy,r){
+  const A = { ...AVA0(), ...(st.style.avatar||{}) };
+  ctx.save(); shadow(ctx,null);
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle = A.bg || '#ffffff'; ctx.fill();
+  if(A.mode==='image' && AVA_IMG){
+    ctx.save(); ctx.clip(); const sc = Math.max(2*r/AVA_IMG.width, 2*r/AVA_IMG.height), dw = AVA_IMG.width*sc, dh = AVA_IMG.height*sc;
+    ctx.drawImage(AVA_IMG, cx-dw/2, cy-dh/2, dw, dh); ctx.restore();
+  } else {
+    const t = (A.text||'').trim().slice(0,4);
+    if(t){ let fs = r*(t.length<=2 ? 1.15 : t.length===3 ? .8 : .62);
+      ctx.fillStyle = A.fg || '#111111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `800 ${fs}px Montserrat,"Noto Sans KR",sans-serif`; if('letterSpacing' in ctx) ctx.letterSpacing = '-1px';
+      ctx.fillText(t, cx, cy - r*.06); if('letterSpacing' in ctx) ctx.letterSpacing = '0px'; ctx.textBaseline = 'alphabetic'; }
+  }
+  if(A.ring){ ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.lineWidth = 2; ctx.strokeStyle = '#d9d9d9'; ctx.stroke(); }
+  ctx.restore();
+}
+function avatarEditor(){
+  if(!st.style.avatar) st.style.avatar = AVA0();
+  const A = st.style.avatar, box = el('div',{class:'role'}), live = () => { saveStyle(); scheduleRender(); };
+  box.append(el('div',{class:'rh'},[el('b',{text:'블로그 프로필 (동그라미)'})]));
+  const md = el('div',{class:'chips'});
+  [['text','글자'],['image','그림']].forEach(([v,l])=>{ const r = el('input',{type:'radio',name:'avaMode',value:v}); r.checked = (A.mode||'text')===v;
+    r.onchange = () => { A.mode = v; live(); renderStyleTab(); }; md.append(el('label',{class:'chip'},[r,l])); });
+  box.append(md);
+  if((A.mode||'text')==='text'){
+    const t = el('input',{type:'text',maxlength:'4',autocomplete:'off'}); t.value = A.text ?? 'y.';
+    t.oninput = () => { A.text = t.value; live(); };
+    box.append(el('label',{class:'f'},['글자 (4자까지, 예: y.)',t]));
+    const colorRow = (label,key,list) => { const sw = el('div',{class:'sw'});
+      const paint = () => { sw.textContent = ''; sw.append(el('span',{class:'hint',text:label}));
+        list.forEach(c=>sw.append(el('button',{type:'button',style:'background:'+c,'aria-label':label+' '+c,'aria-pressed':String(A[key]===c),onclick:()=>{ A[key]=c; live(); paint(); }})));
+        const pk = el('input',{type:'color','aria-label':label+' 직접 고르기'}); pk.value = A[key]; pk.oninput = () => { A[key] = pk.value; live(); }; pk.onchange = paint; sw.append(pk); };
+      paint(); return sw; };
+    box.append(colorRow('바탕','bg',['#ffffff','#111111','#6b1d24','#f4e3c1','#e8b4b8','#9fc6e7']), colorRow('글자','fg',['#111111','#ffffff','#6b1d24','#2f5b8a']));
+  } else {
+    const st2 = el('span',{class:'status'});
+    const f = el('input',{type:'file',accept:'image/*','aria-label':'프로필 그림 고르기'});
+    f.onchange = async () => { const file = f.files[0]; if(!file) return; const url = URL.createObjectURL(file);
+      try { const im = await loadImg(url), c = await shrink(im, 300); const d = c.toDataURL('image/jpeg',.85);
+        if(!LS.set('cm.avatar', d)){ st2.textContent = '저장하지 못했어요.'; return; } loadAva(d); setTimeout(renderStyleTab,200); }
+      catch(e){ st2.textContent = '그림을 읽지 못했어요.'; } finally { URL.revokeObjectURL(url); } };
+    if(AVA_IMG) box.append(el('div',{class:'logoPrev'},[el('img',{src:AVA_IMG.src,alt:'지금 프로필',style:'border-radius:50%;width:80px;height:80px;object-fit:cover'})]));
+    box.append(el('div',{class:'row'},[el('span',{class:'filebtn'},[el('button',{type:'button',class:'sm',tabindex:'-1'},[AVA_IMG?'그림 바꾸기':'그림 고르기']), f]), st2]));
+  }
+  const ring = el('input',{type:'checkbox'}); ring.checked = !!A.ring; ring.onchange = () => { A.ring = ring.checked; live(); };
+  box.append(el('div',{class:'chips'},[el('label',{class:'chip'},[ring,'회색 테두리'])]));
+  return box;
+}
 // photo cropped into a box (zoom / position from the photo tab still apply)
 function drawPhotoIn(ctx,s,x,y,w,hh){
   const im = s.img, sc = Math.max(w/im.width, hh/im.height) * s.zoom, dw = im.width*sc, dh = im.height*sc;
@@ -915,7 +971,7 @@ function drawSlide(cv,s,i){
 // fonts: Google splits Korean faces by unicode range, so load with the real text
 let fontKey = '';
 async function ensureFonts(){
-  const all = [st.place, st.handle, st.addr, '📍➪', ...st.slides.map(s=>s.addr||''), SPARK, '0123456789|@', ...Object.values(st.cover),
+  const all = [st.place, st.handle, st.addr, '📍➪', ...st.slides.map(s=>s.addr||''), SPARK, '0123456789|@', (st.style.avatar?.text||''), ...Object.values(st.cover),
     ...st.slides.flatMap(s=>TEXT_KEYS.map(k=>s[k]))].join('');
   const fams = new Set(['"Noto Sans KR"','Montserrat','"Cormorant Garamond"']);
   const add = r => { if(r && r.font && r.font!=='auto') fams.add(r.font); };
@@ -1152,6 +1208,7 @@ function renderStyleTab(){
   P.append(el('div',{class:'lbl',text:'글씨 위치·사진 어둡기 (모든 장)'}));
   P.append(slider(st.style,'textY','글씨 전체 위치',-300,150,5,'gs',saveStyle,UPDOWN));
   P.append(slider(st.style,'shade','어둡기',.3,1.6,.05,'gs',saveStyle));
+  if(st.slides.some((_,k)=>tplOf(k)==='blog')) P.append(avatarEditor());
   P.append(el('div',{class:'lbl',text:'로고 (모든 장)'}));
   P.append(logoEditor());
 }
@@ -1358,7 +1415,7 @@ $('showHandle').addEventListener('change',e=>{ st.style.showHandle=e.target.chec
 document.querySelectorAll('input[name=tpl]').forEach(r=>{
   r.addEventListener('change',()=>{ st.tpl=r.value; LS.set('cm.tpl',st.tpl); renderEditor(); });
 });
-$('resetStyle').onclick = ()=>{ const keep = { showHandle: st.style.showHandle, tone: st.style.tone, logo: st.style.logo };
+$('resetStyle').onclick = ()=>{ const keep = { showHandle: st.style.showHandle, tone: st.style.tone, logo: st.style.logo, avatar: st.style.avatar };
   st.style = { ...STYLE0(), ...keep }; saveStyle(); st.slides.forEach(s=>s.ov=null); styleScope='all'; renderEditor(); };
 $('caption').addEventListener('input',e=>{ st.caption=e.target.value; scheduleSave(); });
 $('copyCap').onclick = async ()=>{
