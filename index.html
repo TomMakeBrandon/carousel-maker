@@ -785,8 +785,11 @@ function logoEditor(){
 }
 
 // draws at any canvas size (main preview is full size, thumbnails are small)
-// cover can use its own template (empty = same as the rest)
-const tplOf = i => (i===0 && st.coverTpl && DRAW[st.coverTpl]) ? st.coverTpl : st.tpl;
+// each slide can pick its own template (empty = the template for all slides). the cover keeps it in st.coverTpl
+const TPLS = [['yoon','번호형'],['tomato','코스형'],['deon','감성형'],['center','가운데형'],['mag','매거진형']];
+const ownTpl = i => i===0 ? (st.coverTpl||'') : (st.slides[i]?.tpl||'');
+const setOwnTpl = (i,v) => { if(i===0) st.coverTpl = v; else if(st.slides[i]) st.slides[i].tpl = v; };
+const tplOf = i => { const t = ownTpl(i); return t && DRAW[t] ? t : st.tpl; };
 function drawSlide(cv,s,i){
   const ctx = cv.getContext('2d'), k = cv.width / W;
   ctx.save(); ctx.setTransform(k,0,0,k,0,0);
@@ -1005,15 +1008,18 @@ function showTab(t){
 function renderStyleTab(){
   const P = $('styleDyn'); P.textContent = '';
   const s = curSlide(); if(!s) return;
-  P.append(el('div',{class:'lbl',text:'표지 템플릿'}));
+  const ci = st.cur, mine = ownTpl(ci);
+  P.append(el('div',{class:'lbl',text:(ci===0?'표지':`${ci+1}번 장`)+' 템플릿'}));
   const ct = el('div',{class:'chips'});
-  [['','나머지 장과 같게'],['yoon','번호형'],['tomato','코스형'],['deon','감성형'],['center','가운데형'],['mag','매거진형']].forEach(([v,l])=>{
-    const inp = el('input',{type:'radio',name:'coverTpl',value:v}); inp.checked = (st.coverTpl||'')===v;
-    inp.onchange = () => { st.coverTpl = v; renderEditor(); };
+  [['','모든 장과 같게'],...TPLS].forEach(([v,l])=>{
+    const inp = el('input',{type:'radio',name:'slideTpl',value:v}); inp.checked = mine===v;
+    inp.onchange = () => { setOwnTpl(ci,v); renderEditor(); };
     ct.append(el('label',{class:'chip'},[inp,l]));
   });
   P.append(ct);
-  P.append(el('div',{class:'hint',text:'위 템플릿은 2번 장부터, 여기는 표지에만 적용돼요.'}));
+  const nOwn = st.slides.filter((_,k)=>ownTpl(k)).length;
+  P.append(el('div',{class:'hint',text:'위 "템플릿"은 모든 장 기본이고, 여기서 고르면 이 장만 바뀌어요.' + (nOwn ? ` 지금 ${nOwn}장이 따로 골라져 있어요.` : '')}));
+  if(nOwn) P.append(el('div',{class:'row'},[el('button',{type:'button',class:'sm',onclick:()=>{ st.slides.forEach((_,k)=>setOwnTpl(k,'')); renderEditor(); }},['장별 템플릿 모두 지우기'])]));
   const scope = el('div',{class:'chips'});
   [['all','모든 장'],['one','이 장만']].forEach(([v,l])=>{
     const inp = el('input',{type:'radio',name:'scope',value:v}); inp.checked = styleScope===v;
@@ -1096,7 +1102,7 @@ function renderEditor(){
   const P = $('p-text'); P.textContent = '';
   P.append(el('div',{class:'lbl',text: i===0 ? '표지 문구' : `${i+1}번 장 문구`}));
   (i===0 ? FIELDS.cover[tplOf(0)].map(([k,l,m])=>field(st.cover,k,l,m,'cv'))
-          : FIELDS.inner[st.tpl].map(([k,l,m])=>field(s,k,l,m,'s'+s.id))).forEach(f=>P.append(f));
+          : FIELDS.inner[tplOf(i)].map(([k,l,m])=>field(s,k,l,m,'s'+s.id))).forEach(f=>P.append(f));
   if(i>0){
     const cb = el('input',{type:'checkbox',id:'showAddr2'}); cb.checked = !!st.style.showAddr;
     cb.onchange = () => { st.style.showAddr = cb.checked; saveStyle(); syncInputs(); renderEditor(); };
@@ -1578,6 +1584,7 @@ font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 - style.tone: 문구 말투 요청(문자열). 예: "발랄하게", "반말로"
 - tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형) | "center"(가운데형) | "mag"(매거진형) — 2번 장부터(표지는 coverTpl 없으면 같이)
 - coverTpl: 표지만 다른 템플릿. "yoon"|"tomato"|"deon"|"center"|"mag", 같게 하려면 ""
+- slides[].tpl: 그 장(i, 0=표지)만 다른 템플릿, 모든 장과 같게 하려면 ""
 - place: 장소 이름, memo: 장소 설명(지역·특징 등 사용자가 알려준 사실)
 - cover: {kicker, title, sub, hook} 중 바꿀 것만 (hook은 두 줄 제목, 줄바꿈 \\n)
 - slides: [{i: 본문 번호(1부터), 바꿀 필드만: en_title, en_sub, ko_title, ko1, ko2}]
@@ -1633,7 +1640,7 @@ function applyPatch(p){
   if(typeof p.coverTpl==='string' && (p.coverTpl==='' || DRAW[p.coverTpl])) st.coverTpl = p.coverTpl;
   if(typeof p.place==='string' && p.place.trim()) st.place = p.place.trim();
   if(typeof p.memo==='string') st.memo = p.memo.slice(0,400);
-  if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(!s) return; if(typeof x.addr==='string'){ s.addr = x.addr.slice(0,120); s.addrMode = 'own'; } if(['all','own','none'].includes(x.addrMode)) s.addrMode = x.addrMode; });
+  if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(!s) return; if(typeof x.tpl==='string' && (x.tpl==='' || DRAW[x.tpl])) setOwnTpl(Number(x.i), x.tpl); if(typeof x.addr==='string'){ s.addr = x.addr.slice(0,120); s.addrMode = 'own'; } if(['all','own','none'].includes(x.addrMode)) s.addrMode = x.addrMode; });
   if(p.cover && typeof p.cover==='object') for(const k of ['kicker','title','sub','hook']) if(typeof p.cover[k]==='string') st.cover[k]=p.cover[k];
   if(Array.isArray(p.slides)) p.slides.forEach(x=>{ const s = st.slides[Number(x?.i)]; if(!s || Number(x.i)<1) return;
     for(const k of TEXT_KEYS) if(typeof x[k]==='string') s[k]=x[k]; });
@@ -1717,7 +1724,7 @@ $('saveBtn').onclick = async ()=>{
 const UNDO = { stack:[], last:null, timer:null, busy:false };
 function undoSnap(){
   return { refs: st.slides.slice(), j: JSON.stringify({ place:st.place, memo:st.memo, addr:st.addr, tpl:st.tpl, coverTpl:st.coverTpl, style:st.style, cover:st.cover, caption:st.caption,
-    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, ov:s.ov, addr:s.addr||'', addrMode:s.addrMode||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
+    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, ov:s.ov, addr:s.addr||'', addrMode:s.addrMode||'', tpl:s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
 }
 function undoBtnSync(){ $('undoBtn').disabled = !UNDO.stack.length; }
 function undoMark(){ if(UNDO.busy || loading || st.sample) return; clearTimeout(UNDO.timer); UNDO.timer = setTimeout(undoCommit, 500); }
@@ -1807,7 +1814,7 @@ async function saveNow(){
     await DB.put(
       { id: st.pid, name: st.place.trim() || '이름 없는 작업', updated: now, count: st.slides.length, thumb: tc.toDataURL('image/jpeg',.7) },
       { id: st.pid, place: st.place, memo: st.memo, addr: st.addr, tpl: st.tpl, coverTpl: st.coverTpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES,
-        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, addr: s.addr||'', addrMode: s.addrMode||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
+        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, addr: s.addr||'', addrMode: s.addrMode||'', tpl: s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
     );
     if(page===2 && !$('saveStatus').dataset.busy) $('saveStatus').textContent = `자동 저장 ${hhmm(now).split(' ')[1]}`;
   } catch(e){ if(page===2) $('saveStatus').textContent = '자동 저장 실패'; }
@@ -1826,7 +1833,7 @@ async function openProject(id){
       const url = URL.createObjectURL(new Blob([x.buf],{type:'image/jpeg'}));
       try {
         const s = newSlide(await shrink(await loadImg(url), 1800));
-        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '', addrMode:x.addrMode || '' });
+        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '', addrMode:x.addrMode || '', tpl:x.tpl || '' });
         TEXT_KEYS.forEach(k=>s[k] = x[k] || ''); slides.push(s);
       } finally { URL.revokeObjectURL(url); }
     }
