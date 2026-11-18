@@ -330,6 +330,7 @@ body.p2{overflow:hidden;padding-bottom:0}
           <label class="chip"><input type="radio" name="tpl" value="deon">감성형</label>
           <label class="chip"><input type="radio" name="tpl" value="center">가운데형</label>
           <label class="chip"><input type="radio" name="tpl" value="mag">매거진형</label>
+          <label class="chip"><input type="radio" name="tpl" value="blog">블로그형</label>
         </div>
       </div>
       <div id="styleDyn" style="display:flex;flex-direction:column;gap:14px"></div>
@@ -497,14 +498,16 @@ const FIELDS = {
     tomato: [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','부제 ( | 뒤 문구)']],
     deon:   [['hook','제목 (엔터로 줄바꿈)',1]],
     center: [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','아랫줄']],
-    mag:    [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','아랫줄 (➪ 뒤 문구)']]
+    mag:    [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','아랫줄 (➪ 뒤 문구)']],
+    blog:   [['hook','맨 위 제목 (엔터로 줄바꿈)',1],['kicker','사진 아래 작은 설명'],['sub','본문 (엔터로 줄바꿈)',1]]
   },
   inner: {
     yoon:   [['en_title','영문 제목'],['en_sub','영문 소제목'],['ko1','한글 1줄'],['ko2','한글 2줄']],
     tomato: [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
     deon:   [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
     center: [['ko_title','이름·제목 (주소 켜면 옆에 | 주소)',1],['ko1','설명 1'],['ko2','설명 2']],
-    mag:    [['ko_title','이름·제목 (주소 켜면 옆에 | 주소)',1],['ko1','설명 1 (➪ 붙음)'],['ko2','설명 2']]
+    mag:    [['ko_title','이름·제목 (주소 켜면 옆에 | 주소)',1],['ko1','설명 1 (➪ 붙음)'],['ko2','설명 2']],
+    blog:   [['ko_title','맨 위 제목 (#태그도 좋아요)',1],['ko1','사진 아래 작은 설명'],['ko2','본문 (엔터로 줄바꿈)',1]]
   }
 };
 
@@ -696,6 +699,44 @@ const DRAW = {
         if(k===L.length-1) txt(ctx,addrTxt(s,'|  '),x0+w+16,y-2,{size:24,weight:500,color:W90,role:'a',maxW:Math.max(120,W-60-(x0+w+16))});
       });
     }
+  },
+  // blog: white page, title on top, framed photo, small caption, centered body text (like a blog post)
+  blog(ctx,s,i,c){
+    const T = sz('t'), B = sz('b'), K = sz('k');
+    const INK = '#222222', GRAY = '#8a8a8a', PAD = 70;
+    shadow(ctx,null); ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,W,H);
+    const title = i===0 ? (c.hook || c.title || st.place) : s.ko_title;
+    const cap = i===0 ? c.kicker : s.ko1, body = i===0 ? c.sub : s.ko2;
+    const o = (size,extra) => ({ size, weight:500, color:INK, fixed:true, noShadow:true, ...extra });
+    let y;
+    if(i===0){ // cover: big left title, profile line, divider
+      const tl = wrapText(ctx,title,52*T,W-2*PAD-40).slice(0,3);
+      tl.forEach((t,k)=>txt(ctx,t,PAD-10,118+k*68*T,o(52,{role:'t',maxW:W-2*PAD})));
+      y = 118+(tl.length-1)*68*T + 80;
+      const hd = handleTxt().replace(/^@/,'') || (st.place||'').trim();
+      ctx.fillStyle = '#6b1d24'; ctx.beginPath(); ctx.arc(PAD+26,y+30,36,0,Math.PI*2); ctx.fill();
+      txt(ctx,hd,PAD+82,y+24,o(26,{fam:F.en,role:'h'}));
+      txt(ctx,'방금 전 · 비공개',PAD+82,y+58,o(19,{color:GRAY}));
+      y += 110; ctx.fillStyle = '#dddddd'; ctx.fillRect(PAD-50,y,W-2*PAD+100,2); y += 46;
+    } else { // inner: centered heading on top
+      const tl = wrapText(ctx,title,40*T,W-2*PAD).slice(0,2);
+      tl.forEach((t,k)=>txt(ctx,t,W/2,112+k*56*T,o(40,{color:'#2f5b8a',align:'center',role:'t'})));
+      y = tl.length ? 112+(tl.length-1)*56*T + 54 : 84;
+    }
+    // bottom part: body lines, caption, address, handle
+    const bl = String(body||'').split('\n').flatMap(t=>t.trim() ? wrapText(ctx,t.trim(),32*B,W-2*PAD) : ['']).slice(0,8);
+    while(bl.length && !bl[bl.length-1]) bl.pop();
+    const lhB = 54*B, bodyH = bl.length ? bl.length*lhB + 20 : 0;
+    const ad = addrTxt(s), adH = ad ? 92 : 0, capH = cap ? 56 : 0;
+    const bottom = H - 60 - adH;
+    const ph = Math.max(320, bottom - bodyH - capH - 30 - y);
+    drawPhotoIn(ctx,s,PAD,y,W-2*PAD,ph);
+    let yy = y + ph;
+    if(cap){ txt(ctx,cap,W/2,yy+44,o(23,{color:GRAY,align:'center',role:'k'})); yy += capH; }
+    yy += 30;
+    bl.forEach((t,k)=>txt(ctx,t,W/2,yy+40*B+k*lhB,o(32,{align:'center',role:'b'})));
+    if(ad){ ctx.fillStyle = '#d8d8d8'; ctx.fillRect(PAD,H-60-adH+18,W-2*PAD,2); txt(ctx,'📍  '+ad,PAD+10,H-60-adH+72,o(25,{role:'a'})); }
+    if(i>0) txt(ctx,handleTxt(),W/2,H-26,o(18,{color:GRAY,fam:F.en,align:'center',role:'h'}));
   }
 };
 
@@ -784,9 +825,30 @@ function logoEditor(){
   return box;
 }
 
+// photo cropped into a box (zoom / position from the photo tab still apply)
+function drawPhotoIn(ctx,s,x,y,w,hh){
+  const im = s.img, sc = Math.max(w/im.width, hh/im.height) * s.zoom, dw = im.width*sc, dh = im.height*sc;
+  ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,hh); ctx.clip();
+  ctx.drawImage(im, x-(dw-w)*s.fx, y-(dh-hh)*s.fy, dw, dh); ctx.restore();
+}
+// word wrap for long blog lines
+function wrapText(ctx,str,size,maxW){
+  str = String(str||'').trim(); if(!str) return [];
+  ctx.font = `500 ${size}px ${F.ko}`; if('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  const out = [];
+  for(const para of str.split('\n')){
+    let line = '';
+    for(const word of para.split(/\s+/)){
+      const t = line ? line+' '+word : word;
+      if(ctx.measureText(t).width <= maxW || !line) line = t; else { out.push(line); line = word; }
+    }
+    if(line) out.push(line);
+  }
+  return out;
+}
 // draws at any canvas size (main preview is full size, thumbnails are small)
 // each slide can pick its own template (empty = the template for all slides). the cover keeps it in st.coverTpl
-const TPLS = [['yoon','번호형'],['tomato','코스형'],['deon','감성형'],['center','가운데형'],['mag','매거진형']];
+const TPLS = [['yoon','번호형'],['tomato','코스형'],['deon','감성형'],['center','가운데형'],['mag','매거진형'],['blog','블로그형']];
 const ownTpl = i => i===0 ? (st.coverTpl||'') : (st.slides[i]?.tpl||'');
 const setOwnTpl = (i,v) => { if(i===0) st.coverTpl = v; else if(st.slides[i]) st.slides[i].tpl = v; };
 const tplOf = i => { const t = ownTpl(i); return t && DRAW[t] ? t : st.tpl; };
@@ -1582,8 +1644,8 @@ font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 - style.shade: 사진 아래쪽 어둡게 하는 정도 0.3~1.6 (기본 1)
 - style.coverScale: 표지(썸네일) 제목만 키우는 배수 0.8~2.2 (기본 1.45, 조금=0.15, 많이=0.3씩)
 - style.tone: 문구 말투 요청(문자열). 예: "발랄하게", "반말로"
-- tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형) | "center"(가운데형) | "mag"(매거진형) — 2번 장부터(표지는 coverTpl 없으면 같이)
-- coverTpl: 표지만 다른 템플릿. "yoon"|"tomato"|"deon"|"center"|"mag", 같게 하려면 ""
+- tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형) | "center"(가운데형) | "mag"(매거진형) | "blog"(블로그형: 흰 배경·사진 액자·본문) — 2번 장부터(표지는 coverTpl 없으면 같이)
+- coverTpl: 표지만 다른 템플릿. "yoon"|"tomato"|"deon"|"center"|"mag"|"blog", 같게 하려면 ""
 - slides[].tpl: 그 장(i, 0=표지)만 다른 템플릿, 모든 장과 같게 하려면 ""
 - place: 장소 이름, memo: 장소 설명(지역·특징 등 사용자가 알려준 사실)
 - cover: {kicker, title, sub, hook} 중 바꿀 것만 (hook은 두 줄 제목, 줄바꿈 \\n)
