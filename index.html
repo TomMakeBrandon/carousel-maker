@@ -57,6 +57,10 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu
 input[type=text],input[type=password],textarea,select{font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:2px solid var(--line);border-radius:18px;padding:9px 12px;width:100%}
 select{padding:7px 10px}
 textarea{resize:vertical;min-height:44px}
+.moreRow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.moreIt{display:flex;flex-direction:column;align-items:center;gap:4px;flex:0 0 auto;font-size:12px}
+.moreIt canvas{width:60px;height:75px;border-radius:8px;object-fit:cover}
+.moreIt button{min-height:30px;padding:3px 8px;font-size:12px}
 .logoPrev{background:#555;border-radius:12px;padding:10px;display:flex;justify-content:center}
 .logoPrev img{max-height:90px;max-width:100%}
 input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent)}
@@ -483,7 +487,7 @@ const st = {
 };
 const saveStyle = () => LS.set('cm.style', JSON.stringify(st.style));
 let uid = 0;
-const newSlide = img => ({ id: ++uid, img, fx: .5, fy: .5, zoom: 1, ov: null,
+const newSlide = img => ({ id: ++uid, img, fx: .5, fy: .5, zoom: 1, ov: null, more: [],
   en_title:'', en_sub:'', ko_title:'', ko1:'', ko2:'', addr:'' });
 const TEXT_KEYS = ['en_title','en_sub','ko_title','ko1','ko2'];
 const curSlide = () => st.slides[st.cur];
@@ -730,7 +734,7 @@ const DRAW = {
     const ad = addrTxt(s), adH = ad ? 92 : 0, capH = cap ? 56 : 0;
     const bottom = H - 60 - adH;
     const ph = Math.max(320, bottom - bodyH - capH - 30 - y);
-    drawPhotoIn(ctx,s,PAD,y,W-2*PAD,ph);
+    drawPhotos(ctx,s,PAD,y,W-2*PAD,ph);
     let yy = y + ph;
     if(cap){ txt(ctx,cap,W/2,yy+44,o(23,{color:GRAY,align:'center',role:'k'})); yy += capH; }
     yy += 30;
@@ -830,6 +834,52 @@ function drawPhotoIn(ctx,s,x,y,w,hh){
   const im = s.img, sc = Math.max(w/im.width, hh/im.height) * s.zoom, dw = im.width*sc, dh = im.height*sc;
   ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,hh); ctx.clip();
   ctx.drawImage(im, x-(dw-w)*s.fx, y-(dh-hh)*s.fy, dw, dh); ctx.restore();
+}
+// the slide's photo plus up to 3 extra photos, laid out as a grid (blog template)
+function drawPhotos(ctx,s,x,y,w,hh){
+  const P = [s, ...(s.more||[])].slice(0,4), g = 10;
+  if(P.length===1) return drawPhotoIn(ctx,s,x,y,w,hh);
+  if(P.length===2){ const cw = (w-g)/2; P.forEach((m,k)=>drawPhotoIn(ctx,m,x+k*(cw+g),y,cw,hh)); return; }
+  if(P.length===3){ const cw = (w-g)/2, rh = (hh-g)/2;
+    drawPhotoIn(ctx,P[0],x,y,cw,hh); drawPhotoIn(ctx,P[1],x+cw+g,y,cw,rh); drawPhotoIn(ctx,P[2],x+cw+g,y+rh+g,cw,rh); return; }
+  const cw = (w-g)/2, rh = (hh-g)/2;
+  P.forEach((m,k)=>drawPhotoIn(ctx,m,x+(k%2)*(cw+g),y+(k>>1)*(rh+g),cw,rh));
+}
+// photo tab: put 1~4 photos on one slide
+function morePhotosBox(s,i){
+  s.more = s.more || [];
+  const box = el('div',{class:'role'}), n = 1 + s.more.length;
+  const isBlog = tplOf(i)==='blog';
+  box.append(el('div',{class:'rh'},[el('b',{text:`이 장 사진 ${n}장 (최대 4장)`})]));
+  if(!isBlog) box.append(el('div',{class:'hint',text:'여러 장은 블로그형 템플릿에서 보여요. 글씨 탭에서 이 장 템플릿을 블로그형으로 골라 주세요.'}));
+  const row = el('div',{class:'moreRow'});
+  const thumb = (m,label,btn) => { const cv = el('canvas',{width:120,height:150}); const c = cv.getContext('2d');
+    const im = m.img, sc = Math.max(120/im.width,150/im.height), dw = im.width*sc, dh = im.height*sc; c.drawImage(im,(120-dw)/2,(150-dh)/2,dw,dh);
+    return el('div',{class:'moreIt'},[cv, el('span',{text:label}), btn]); };
+  row.append(thumb(s,'기본',null));
+  s.more.forEach((m,k)=>row.append(thumb(m,`${k+2}`, el('button',{type:'button',class:'sm',onclick:()=>{
+    s.more.splice(k,1); st.slides.splice(i+1,0,m); renderEditor(); }},['따로 빼기']))));
+  box.append(row);
+  if(n<4){
+    const others = st.slides.map((o,k)=>[o,k]).filter(([o,k])=>k!==i);
+    if(others.length){
+      box.append(el('div',{class:'hint',text:'올린 사진에서 고르면 그 사진의 장이 이 장으로 합쳐져요(그 장 문구는 없어져요).'}));
+      const pick = el('div',{class:'moreRow'});
+      others.forEach(([o,k])=>pick.append(thumb(o,k===0?'표지':String(k+1), el('button',{type:'button',class:'sm',onclick:()=>{
+        if(s.more.length>=3) return;
+        const [m] = st.slides.splice(k,1); const extra = m.more||[]; m.more = [];
+        s.more.push(m, ...extra.slice(0, Math.max(0,3-s.more.length-1)));
+        st.cur = st.slides.indexOf(s); renderEditor(); }},['넣기']))));
+      box.append(pick);
+    }
+    const f = el('input',{type:'file',accept:'image/*',multiple:true,'aria-label':'이 장에 사진 더 올리기'});
+    f.onchange = async () => { for(const file of [...f.files].slice(0, 3-s.more.length)){
+        const url = URL.createObjectURL(file);
+        try { s.more.push(newSlide(await shrink(await loadImg(url), 1800))); } catch(e){} finally { URL.revokeObjectURL(url); } }
+      renderEditor(); scheduleSave(); };
+    box.append(el('div',{class:'row'},[el('span',{class:'filebtn'},[el('button',{type:'button',class:'sm',tabindex:'-1'},['새 사진 더 올리기']), f])]));
+  }
+  return box;
 }
 // word wrap for long blog lines
 function wrapText(ctx,str,size,maxW){
@@ -1189,6 +1239,7 @@ function renderEditor(){
   // 사진
   const Q = $('p-photo'); Q.textContent = '';
   Q.append(el('div',{class:'lbl',text:'사진 순서'}), el('div',{class:'hint',text:'사진을 끌어다 원하는 자리에 놓으면 순서가 바뀌어요. 첫 칸이 표지예요. 누르면 그 장으로 가요.'}), orderGrid());
+  Q.append(morePhotosBox(s,i));
   Q.append(el('div',{class:'lbl',text: i===0 ? '표지 사진 맞추기' : `${i+1}번 사진 맞추기`}));
   Q.append(slider(s,'fy','위↔아래',0,1,.01,'p'+s.id), slider(s,'fx','좌↔우',0,1,.01,'p'+s.id), slider(s,'zoom','확대',1,2.5,.01,'p'+s.id));
   Q.append(el('div',{class:'row'},[
@@ -1785,8 +1836,8 @@ $('saveBtn').onclick = async ()=>{
 // ---------- undo: snapshots of everything editable (photos kept by reference) ----------
 const UNDO = { stack:[], last:null, timer:null, busy:false };
 function undoSnap(){
-  return { refs: st.slides.slice(), j: JSON.stringify({ place:st.place, memo:st.memo, addr:st.addr, tpl:st.tpl, coverTpl:st.coverTpl, style:st.style, cover:st.cover, caption:st.caption,
-    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, ov:s.ov, addr:s.addr||'', addrMode:s.addrMode||'', tpl:s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
+  return { refs: st.slides.flatMap(s=>[s, ...(s.more||[])]), j: JSON.stringify({ place:st.place, memo:st.memo, addr:st.addr, tpl:st.tpl, coverTpl:st.coverTpl, style:st.style, cover:st.cover, caption:st.caption,
+    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, more:(s.more||[]).map(m=>m.id), ov:s.ov, addr:s.addr||'', addrMode:s.addrMode||'', tpl:s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
 }
 function undoBtnSync(){ $('undoBtn').disabled = !UNDO.stack.length; }
 function undoMark(){ if(UNDO.busy || loading || st.sample) return; clearTimeout(UNDO.timer); UNDO.timer = setTimeout(undoCommit, 500); }
@@ -1805,7 +1856,7 @@ function undo(){
   UNDO.busy = true;
   try {
     Object.assign(st, { place:d.place, memo:d.memo, addr:d.addr, tpl:d.tpl, coverTpl:d.coverTpl||'', style:d.style, cover:d.cover, caption:d.caption });
-    st.slides = d.s.map(x=>{ const s = byId.get(x.id); const { id, ...rest } = x; return Object.assign(s, rest); }).filter(Boolean);
+    st.slides = d.s.map(x=>{ const s = byId.get(x.id); if(!s) return null; const { id, more, ...rest } = x; Object.assign(s, rest); s.more = (more||[]).map(k=>byId.get(k)).filter(Boolean); return s; }).filter(Boolean);
     st.cur = Math.max(0, Math.min(st.cur, st.slides.length-1));
     saveStyle(); LS.set('cm.tpl', st.tpl); $('caption').value = st.caption;
     styleScope = curSlide()?.ov ? 'one' : 'all';
@@ -1868,7 +1919,7 @@ async function saveNow(){
   saving = true;
   try {
     if(!st.pid){ st.pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); LS.set('cm.pid', st.pid); }
-    for(const s of st.slides) if(!s.buf){
+    for(const s of st.slides.flatMap(s=>[s, ...(s.more||[])])) if(!s.buf){
       const b = await new Promise(ok=>s.img.toBlob(ok,'image/jpeg',.9)); s.buf = await b.arrayBuffer();
     }
     const tc = document.createElement('canvas'); tc.width = 108; tc.height = 135; drawSlide(tc, st.slides[0], 0);
@@ -1876,7 +1927,7 @@ async function saveNow(){
     await DB.put(
       { id: st.pid, name: st.place.trim() || '이름 없는 작업', updated: now, count: st.slides.length, thumb: tc.toDataURL('image/jpeg',.7) },
       { id: st.pid, place: st.place, memo: st.memo, addr: st.addr, tpl: st.tpl, coverTpl: st.coverTpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES,
-        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, ov: s.ov, addr: s.addr||'', addrMode: s.addrMode||'', tpl: s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
+        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, more: (s.more||[]).map(m=>({ buf:m.buf, fx:m.fx, fy:m.fy, zoom:m.zoom })), ov: s.ov, addr: s.addr||'', addrMode: s.addrMode||'', tpl: s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
     );
     if(page===2 && !$('saveStatus').dataset.busy) $('saveStatus').textContent = `자동 저장 ${hhmm(now).split(' ')[1]}`;
   } catch(e){ if(page===2) $('saveStatus').textContent = '자동 저장 실패'; }
@@ -1896,7 +1947,11 @@ async function openProject(id){
       try {
         const s = newSlide(await shrink(await loadImg(url), 1800));
         Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '', addrMode:x.addrMode || '', tpl:x.tpl || '' });
-        TEXT_KEYS.forEach(k=>s[k] = x[k] || ''); slides.push(s);
+        TEXT_KEYS.forEach(k=>s[k] = x[k] || '');
+        for(const y of x.more||[]){ const u2 = URL.createObjectURL(new Blob([y.buf],{type:'image/jpeg'}));
+          try { const m = newSlide(await shrink(await loadImg(u2), 1800)); Object.assign(m,{ fx:y.fx ?? .5, fy:y.fy ?? .5, zoom:y.zoom ?? 1, buf:y.buf }); s.more.push(m); }
+          catch(e){} finally { URL.revokeObjectURL(u2); } }
+        slides.push(s);
       } finally { URL.revokeObjectURL(url); }
     }
     st.pid = id; LS.set('cm.pid', id);
