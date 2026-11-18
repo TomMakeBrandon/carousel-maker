@@ -57,6 +57,8 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu
 input[type=text],input[type=password],textarea,select{font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:2px solid var(--line);border-radius:18px;padding:9px 12px;width:100%}
 select{padding:7px 10px}
 textarea{resize:vertical;min-height:44px}
+.logoPrev{background:#555;border-radius:12px;padding:10px;display:flex;justify-content:center}
+.logoPrev img{max-height:90px;max-width:100%}
 input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 35%,transparent)}
 button:focus-visible,.chip:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 button{font-family:var(--label);font-weight:400;font-size:16px;border-radius:999px;border:2px solid var(--line);background:var(--surface);color:var(--ink);padding:9px 14px;cursor:pointer;min-height:42px;box-shadow:0 3px 0 var(--lift);transition:transform .12s,box-shadow .12s}
@@ -457,12 +459,15 @@ const $ = id => document.getElementById(id);
 // ---------- state ----------
 const ROLE0 = () => ({ font:'auto', color:null, size:1, stroke:0, strokeColor:'#111111', shadow:1, y:0 });
 const STROKE_SW = ['#111111','#ffffff','#ff8fa8','#ffe58a','#7a4b3a'];
-const STYLE0 = () => ({ showHandle:true, showAddr:false, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), a:ROLE0(), h:ROLE0() } });
+// logo stamp: pos 'top' | 'bottom', size = width share of the slide, x/y = nudge in px
+const LOGO0 = () => ({ on:false, pos:'top', size:.26, color:'#ffffff', x:0, y:0, op:1, cover:true });
+const STYLE0 = () => ({ logo:LOGO0(), showHandle:true, showAddr:false, textY:0, shade:1, tone:'', coverScale:1.45, roles:{ t:ROLE0(), k:ROLE0(), b:ROLE0(), a:ROLE0(), h:ROLE0() } });
 function loadStyle(){
   const s = STYLE0();
   try {
     const o = JSON.parse(LS.get('cm.style')||'{}');
     for(const k of ['showHandle','showAddr','textY','shade','tone','coverScale']) if(o[k]!=null) s[k]=o[k];
+    if(o.logo) s.logo = { ...LOGO0(), ...o.logo };
     if(o.roles) for(const r of ROLE_KEYS) if(o.roles[r]) s.roles[r] = { ...ROLE0(), ...o.roles[r] };
     if(o.titleScale && !o.roles) s.roles.t.size = o.titleScale;
     if(o.textScale && !o.roles){ s.roles.b.size = o.textScale; s.roles.k.size = o.textScale; }
@@ -694,6 +699,91 @@ const DRAW = {
   }
 };
 
+// ---------- logo ----------
+// stored as a white-on-transparent PNG (background removed), recoloured when drawn
+let LOGO = null; const logoTint = {};
+function loadLogo(url){
+  for(const k in logoTint) delete logoTint[k];
+  if(!url){ LOGO = null; scheduleRender(); return; }
+  const im = new Image(); im.onload = () => { LOGO = im; scheduleRender(); }; im.src = url;
+}
+function tinted(color){
+  if(logoTint[color]) return logoTint[color];
+  const c = document.createElement('canvas'); c.width = LOGO.width; c.height = LOGO.height;
+  const x = c.getContext('2d'); x.drawImage(LOGO,0,0); x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0,0,c.width,c.height);
+  return logoTint[color] = c;
+}
+function drawLogo(ctx,i){
+  const L = { ...LOGO0(), ...(st.style.logo||{}) };
+  if(!L.on || !LOGO || (i===0 && !L.cover)) return;
+  const im = tinted(L.color||'#ffffff'), w = W*L.size, hh = w*im.height/im.width;
+  const x = (W-w)/2 + (+L.x||0), y = (L.pos==='bottom' ? H-hh-40 : 40) + (+L.y||0);
+  ctx.save(); shadow(ctx,null); ctx.globalAlpha = L.op ?? 1; ctx.drawImage(im,x,y,w,hh); ctx.restore();
+}
+// removes a plain background: light background -> dark marks kept (or the reverse); real transparency is kept as is
+async function makeLogo(file){
+  const bmp = await createImageBitmap(file);
+  const sc = Math.min(1, 900/Math.max(bmp.width,bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width*sc); c.height = Math.round(bmp.height*sc);
+  const x = c.getContext('2d'); x.drawImage(bmp,0,0,c.width,c.height);
+  const d = x.getImageData(0,0,c.width,c.height), p = d.data, n = c.width*c.height;
+  const lum = k => (0.299*p[k]+0.587*p[k+1]+0.114*p[k+2])/255;
+  const corners = [0, (c.width-1)*4, (n-c.width)*4, (n-1)*4];
+  const clear = corners.every(k=>p[k+3]<20);
+  const bg = corners.reduce((a,k)=>a+lum(k),0)/4, darkInk = bg > .5;
+  let x0=c.width, y0=c.height, x1=-1, y1=-1;
+  for(let k=0;k<n;k++){
+    const o = k*4; let a;
+    if(clear) a = p[o+3]/255;
+    else { const l = lum(o), dist = darkInk ? bg-l : l-bg; a = Math.max(0, Math.min(1, (dist-.12)/.35)); }
+    p[o]=p[o+1]=p[o+2]=255; p[o+3]=Math.round(a*255);
+    if(a>.1){ const xx=k%c.width, yy=(k/c.width)|0; if(xx<x0)x0=xx; if(xx>x1)x1=xx; if(yy<y0)y0=yy; if(yy>y1)y1=yy; }
+  }
+  if(x1<0) throw { message:'로고 모양을 찾지 못했어요. 배경과 색이 잘 구분되는 그림을 골라 주세요.' };
+  x.putImageData(d,0,0);
+  const t = document.createElement('canvas'); t.width = x1-x0+1; t.height = y1-y0+1;
+  t.getContext('2d').drawImage(c,x0,y0,t.width,t.height,0,0,t.width,t.height);
+  return t.toDataURL('image/png');
+}
+if(LS.get('cm.logo')) loadLogo(LS.get('cm.logo'));
+const LOGO_SW = ['#ffffff','#111111','#f4e3c1','#e8b4b8','#9fc6e7','#c9a227','#7a1f2b'];
+function logoEditor(){
+  if(!st.style.logo) st.style.logo = LOGO0();
+  const L = st.style.logo, box = el('div',{class:'role'});
+  const live = () => { saveStyle(); scheduleRender(); };
+  const status = el('span',{class:'status'});
+  const file = el('input',{type:'file',accept:'image/*','aria-label':'로고 그림 고르기'});
+  file.onchange = async () => { const f = file.files[0]; if(!f) return; status.textContent = '배경 지우는 중…';
+    try { const url = await makeLogo(f); if(!LS.set('cm.logo',url)){ status.textContent = '로고가 너무 커서 저장하지 못했어요.'; return; }
+      loadLogo(url); L.on = true; live(); setTimeout(renderStyleTab,300); }
+    catch(e){ status.textContent = e?.message || '로고를 읽지 못했어요.'; } };
+  box.append(el('div',{class:'rh'},[el('b',{text:'로고'})]));
+  if(LOGO) box.append(el('div',{class:'logoPrev'},[el('img',{src:LOGO.src,alt:'지금 로고'})]));
+  box.append(el('div',{class:'row'},[
+    el('span',{class:'filebtn'},[el('button',{type:'button',class:'sm',tabindex:'-1'},[LOGO?'로고 바꾸기':'로고 그림 넣기']), file]),
+    ...(LOGO ? [el('button',{type:'button',class:'sm',onclick:()=>{ LS.del('cm.logo'); loadLogo(null); L.on=false; live(); renderStyleTab(); }},['로고 지우기'])] : []),
+    status ]));
+  if(!LOGO){ box.append(el('div',{class:'hint',text:'흰 배경이나 단색 배경은 자동으로 지워져요. 로고는 이 기기에 저장돼요.'})); return box; }
+  const chk = (label,key) => { const i = el('input',{type:'checkbox'}); i.checked = !!L[key]; i.onchange = () => { L[key] = i.checked; live(); }; return el('label',{class:'chip'},[i,label]); };
+  box.append(el('div',{class:'chips'},[chk('로고 넣기','on'), chk('표지에도','cover')]));
+  const pos = el('div',{class:'chips'});
+  [['top','위'],['bottom','아래']].forEach(([v,l])=>{ const i = el('input',{type:'radio',name:'logoPos',value:v}); i.checked = L.pos===v;
+    i.onchange = () => { L.pos = v; L.y = 0; live(); renderStyleTab(); }; pos.append(el('label',{class:'chip'},[i,l])); });
+  box.append(pos);
+  const sw = el('div',{class:'sw'});
+  const paint = () => { sw.textContent = '';
+    [...LOGO_SW,...photoColors].forEach(c=>sw.append(el('button',{type:'button',style:'background:'+c,'aria-label':'로고 색 '+c,'aria-pressed':String(L.color===c),onclick:()=>{ L.color=c; live(); paint(); }})));
+    const pk = el('input',{type:'color','aria-label':'로고 색 직접 고르기'}); pk.value = L.color||'#ffffff';
+    pk.oninput = () => { L.color = pk.value; live(); }; pk.onchange = paint; sw.append(pk); };
+  paint();
+  box.append(sw,
+    slider(L,'size','크기',.08,.8,.01,'lg',saveStyle),
+    slider(L,'x','좌우',-450,450,5,'lg',saveStyle,v=>v===0?'0 가운데':(v<0?'왼쪽 '+(-v):'오른쪽 '+v)),
+    slider(L,'y','위아래',-300,1100,5,'lg',saveStyle,UPDOWN),
+    slider(L,'op','진하기',.2,1,.05,'lg',saveStyle));
+  return box;
+}
+
 // draws at any canvas size (main preview is full size, thumbnails are small)
 // cover can use its own template (empty = same as the rest)
 const tplOf = i => (i===0 && st.coverTpl && DRAW[st.coverTpl]) ? st.coverTpl : st.tpl;
@@ -703,6 +793,7 @@ function drawSlide(cv,s,i){
   shadow(ctx,null); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
   drawPhoto(ctx,s);
   CUR = s; try { DRAW[tplOf(i)](ctx,s,i,st.cover); } finally { CUR = null; }
+  drawLogo(ctx,i);
   ctx.restore();
 }
 
@@ -943,6 +1034,8 @@ function renderStyleTab(){
   P.append(el('div',{class:'lbl',text:'글씨 위치·사진 어둡기 (모든 장)'}));
   P.append(slider(st.style,'textY','글씨 전체 위치',-300,150,5,'gs',saveStyle,UPDOWN));
   P.append(slider(st.style,'shade','어둡기',.3,1.6,.05,'gs',saveStyle));
+  P.append(el('div',{class:'lbl',text:'로고 (모든 장)'}));
+  P.append(logoEditor());
 }
 function renderThumbs(){
   const T = $('thumbs'); T.textContent = '';
@@ -1146,7 +1239,7 @@ $('showHandle').addEventListener('change',e=>{ st.style.showHandle=e.target.chec
 document.querySelectorAll('input[name=tpl]').forEach(r=>{
   r.addEventListener('change',()=>{ st.tpl=r.value; LS.set('cm.tpl',st.tpl); renderEditor(); });
 });
-$('resetStyle').onclick = ()=>{ const keep = { showHandle: st.style.showHandle, tone: st.style.tone };
+$('resetStyle').onclick = ()=>{ const keep = { showHandle: st.style.showHandle, tone: st.style.tone, logo: st.style.logo };
   st.style = { ...STYLE0(), ...keep }; saveStyle(); st.slides.forEach(s=>s.ov=null); styleScope='all'; renderEditor(); };
 $('caption').addEventListener('input',e=>{ st.caption=e.target.value; scheduleSave(); });
 $('copyCap').onclick = async ()=>{
