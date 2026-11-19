@@ -614,7 +614,7 @@ const DRAW = {
       const t = mlUp(ctx,(s.en_title||'').toUpperCase(),72,tLast,{size:50,weight:800,fam:F.en,ls:1,role:'t'},58*T);
       const dy = st.style.textY, top = t.first - 166*T;
       shadow(ctx,null); ctx.fillStyle='#fff'; ctx.fillRect(72,top+dy,88,88);
-      txt(ctx,String(i).padStart(2,'0'),116,top+60+dy,{size:44,weight:800,fam:F.en,color:'#111',align:'center',fixed:true,noShadow:true});
+      txt(ctx,String(numOf(i)).padStart(2,'0'),116,top+60+dy,{size:44,weight:800,fam:F.en,color:'#111',align:'center',fixed:true,noShadow:true});
       txt(ctx,addrTxt(s),184,top+54,{size:28,weight:500,color:W90,maxW:W-184-72,role:'a'});
     }
     txt(ctx,handleTxt(),W/2,1312,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
@@ -677,7 +677,7 @@ const DRAW = {
       const L = lines(s.ko_title), lh = 76*T, last = body.length ? bFirst-84*B : 1250;
       L.forEach((t,k)=>{
         const y = last-(L.length-1-k)*lh, w = txt(ctx,t,X,y,{size:66,weight:800,align:'center',role:'t'});
-        if(k===0) txt(ctx,String(i),X-w/2-6,y-34*T,{size:26,weight:700,fam:F.en,align:'right',role:'t'});
+        if(k===0) txt(ctx,String(numOf(i)),X-w/2-6,y-34*T,{size:26,weight:700,fam:F.en,align:'right',role:'t'});
         if(k===L.length-1) txt(ctx,addrTxt(s,'| '),X+w/2+16,y,{size:28,weight:500,color:W90,role:'a',maxW:Math.max(120,W-60-(X+w/2+16))});
       });
     }
@@ -704,7 +704,7 @@ const DRAW = {
         const y = last-(L.length-1-k)*lh;
         if(k===0){ const r = 24*T, cy = y + oy - 19*T; // circled number
           shadow(ctx,'dark',.6); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(66+r,cy,r,0,Math.PI*2); ctx.fill(); shadow(ctx,null);
-          ctx.fillStyle='#111'; ctx.font = `800 ${Math.round(28*T)}px ${F.en}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(i),66+r,cy+1); ctx.textBaseline='alphabetic'; }
+          ctx.fillStyle='#111'; ctx.font = `800 ${Math.round(28*T)}px ${F.en}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(numOf(i)),66+r,cy+1); ctx.textBaseline='alphabetic'; }
         const x0 = 66+58*T, w = txt(ctx,t,x0,y,{size:56,weight:600,role:'t',maxW:W-x0-60});
         if(k===L.length-1) txt(ctx,addrTxt(s,'|  '),x0+w+16,y-2,{size:24,weight:500,color:W90,role:'a',maxW:Math.max(120,W-60-(x0+w+16))});
       });
@@ -960,6 +960,8 @@ function wrapText(ctx,str,size,maxW){
 const TPLS = [['yoon','번호형'],['tomato','코스형'],['deon','감성형'],['center','가운데형'],['mag','매거진형'],['blog','블로그형']];
 const ownTpl = i => i===0 ? (st.coverTpl||'') : (st.slides[i]?.tpl||'');
 const setOwnTpl = (i,v) => { if(i===0) st.coverTpl = v; else if(st.slides[i]) st.slides[i].tpl = v; };
+// slide number counts only slides with the same template (cover not counted): yoon,mag,mag,yoon -> 1,1,2,2
+const numOf = i => { const t = tplOf(i); let n = 0; for(let k=1;k<=i;k++) if(tplOf(k)===t) n++; return n || i; };
 const tplOf = i => { const t = ownTpl(i); return t && DRAW[t] ? t : st.tpl; };
 function drawSlide(cv,s,i){
   const ctx = cv.getContext('2d'), k = cv.width / W;
