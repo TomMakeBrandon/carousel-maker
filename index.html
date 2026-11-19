@@ -313,6 +313,7 @@ body.p2{overflow:hidden;padding-bottom:0}
       <button type="button" role="tab" data-tab="photo" id="t-photo">사진</button>
       <button type="button" role="tab" data-tab="cap" id="t-cap">캡션</button>
       <button type="button" role="tab" data-tab="chat" id="t-chat">대화</button>
+      <button type="button" role="tab" data-tab="video" id="t-video">영상</button>
       <button type="button" role="tab" data-tab="set" id="t-set">설정</button>
     </div>
   </div>
@@ -372,6 +373,8 @@ body.p2{overflow:hidden;padding-bottom:0}
       </form>
       <div class="hint">새 기능을 넣는 건 여기서 안 돼요. 그런 건 관리자에게 부탁해 주세요.</div>
     </div>
+
+    <div class="tabpanel" role="tabpanel" id="p-video" aria-labelledby="t-video" hidden></div>
 
     <div class="tabpanel" role="tabpanel" id="p-set" aria-labelledby="t-set" hidden>
       <div class="status" id="modeTxt"></div>
@@ -1167,7 +1170,8 @@ function showTab(t){
   if(!$('p-'+t)) t = 'text';
   tab = t; LS.set('cm.tab',t);
   document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected', String(!gridOpen && b.dataset.tab===t)));
-  ['text','style','photo','cap','chat','set'].forEach(k=>$('p-'+k).hidden = gridOpen || k!==t);
+  ['text','style','photo','cap','chat','video','set'].forEach(k=>$('p-'+k).hidden = gridOpen || k!==t);
+  if(t==='video' && !gridOpen) setTimeout(renderVideoTab); // after the whole script has run (video consts)
   $('panes').scrollTop = 0;
   $('thumbsBox').hidden = !gridOpen;
   $('gridBtn').textContent = gridOpen ? '닫기' : '전체';
@@ -1841,6 +1845,134 @@ $('chatForm').addEventListener('submit', async e=>{
   } finally { busy(false); }
 });
 
+// ---------- reels video (9:16 mp4, no sound) ----------
+// built frame by frame with WebCodecs + mp4-muxer, so scene lengths are exact and it is faster than real time
+const VW = 1080, VH = 1920, FPS = 30;
+const VID0 = () => ({ look:'photo', cover:2, dur:.5, last:1.5, zoom:true, label:true });
+st.video = (()=>{ try { return { ...VID0(), ...JSON.parse(LS.get('cm.video')||'{}') }; } catch(e){ return VID0(); } })();
+const saveVideo = () => LS.set('cm.video', JSON.stringify(st.video));
+const SEC = v => (Math.round(v*100)/100) + '초';
+function sceneDur(i){ const n = st.slides.length, V = st.video;
+  return i===0 ? V.cover : (i===n-1 ? V.last : V.dur); }
+const sceneFrames = i => Math.max(1, Math.round(sceneDur(i)*FPS));
+const totalSec = () => st.slides.reduce((a,_,i)=>a+sceneFrames(i),0)/FPS;
+function blurBg(ctx,img){ // cheap blur: shrink a lot, then stretch back
+  const t = document.createElement('canvas'); t.width = 27; t.height = 48;
+  const x = t.getContext('2d'), sc = Math.max(27/img.width, 48/img.height);
+  x.drawImage(img,(27-img.width*sc)/2,(48-img.height*sc)/2,img.width*sc,img.height*sc);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(t,0,0,VW,VH);
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(0,0,VW,VH);
+}
+function sceneCanvas(i){
+  const s = st.slides[i], c = document.createElement('canvas'); c.width = VW; c.height = VH;
+  const x = c.getContext('2d'), V = st.video;
+  if(i===0 || V.look==='card'){ // the carousel slide as it is, blurred photo above and below
+    blurBg(x,s.img);
+    const card = document.createElement('canvas'); card.width = W; card.height = H; drawSlide(card,s,i);
+    x.drawImage(card,0,Math.round((VH-H)/2));
+  } else { // full photo + small shop name
+    drawPhotoIn(x,s,0,0,VW,VH);
+    const name = (s.vlabel||st.place||'').trim();
+    if(V.label && name){
+      x.font = `700 40px ${F.ko}`; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+      x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 12; x.shadowOffsetY = 2; x.fillStyle = '#fff';
+      x.fillText('📍 ' + name, VW/2, VH-470);
+    }
+  }
+  return c;
+}
+let vidCtl = null, vidBlob = null;
+async function makeVideo(onProg, signal){
+  if(!('VideoEncoder' in window) || !('VideoFrame' in window)) throw { code:'novideo' };
+  await ensureFonts();
+  const { Muxer, ArrayBufferTarget } = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.mjs');
+  let codec = null;
+  for(const c of ['avc1.640028','avc1.4d0028','avc1.42e028']){
+    try { const r = await VideoEncoder.isConfigSupported({ codec:c, width:VW, height:VH, bitrate:8e6, framerate:FPS }); if(r.supported){ codec = c; break; } } catch(e){}
+  }
+  if(!codec) throw { code:'novideo' };
+  const target = new ArrayBufferTarget();
+  const muxer = new Muxer({ target, video:{ codec:'avc', width:VW, height:VH }, fastStart:'in-memory' });
+  let encErr = null;
+  const enc = new VideoEncoder({ output:(ch,meta)=>muxer.addVideoChunk(ch,meta), error:e=>{ encErr = e; } });
+  enc.configure({ codec, width:VW, height:VH, bitrate:8_000_000, framerate:FPS });
+  const out = document.createElement('canvas'); out.width = VW; out.height = VH; const o = out.getContext('2d');
+  const n = st.slides.length, total = st.slides.reduce((a,_,i)=>a+sceneFrames(i),0);
+  let f = 0;
+  try {
+    for(let i=0;i<n;i++){
+      const base = sceneCanvas(i), nf = sceneFrames(i);
+      for(let k=0;k<nf;k++){
+        if(signal.aborted) throw { code:'cancelled' };
+        if(encErr) throw encErr;
+        const z = st.video.zoom && i>0 ? 1 + .05*k/Math.max(1,nf-1) : 1;
+        o.drawImage(base, VW*(1-z)/2, VH*(1-z)/2, VW*z, VH*z);
+        const fr = new VideoFrame(out, { timestamp: Math.round(f*1e6/FPS), duration: Math.round(1e6/FPS) });
+        enc.encode(fr, { keyFrame: k===0 }); fr.close(); f++;
+        while(enc.encodeQueueSize > 6) await new Promise(r=>setTimeout(r,5));
+        if(f%10===0){ onProg?.(f/total); await new Promise(r=>setTimeout(r,0)); }
+      }
+    }
+    await enc.flush(); if(encErr) throw encErr;
+  } finally { try { enc.close(); } catch(e){} }
+  muxer.finalize();
+  onProg?.(1);
+  return new Blob([target.buffer], { type:'video/mp4' });
+}
+async function saveVideoFile(blob){
+  const name = safeName() + '_reels.mp4', file = new File([blob], name, { type:'video/mp4' });
+  if(dl){ await dl.save({ filename:name, data:blob }); return '저장했어요.'; }
+  const phone = matchMedia('(pointer:coarse)').matches;
+  if(phone && navigator.canShare && navigator.canShare({ files:[file] })){
+    await navigator.share({ files:[file] }); return '공유 창에서 "동영상 저장"을 누르세요.'; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 15000); return '내려받았어요. (다운로드 폴더)';
+}
+function renderVideoTab(){
+  const P = $('p-video'); P.textContent = '';
+  const V = st.video, s = curSlide(), i = st.cur;
+  P.append(el('div',{class:'lbl',text:'릴스 영상 (세로 9:16, 소리 없음)'}),
+    el('div',{class:'hint',text:'사진이 빠르게 넘어가는 영상을 만들어요. 음악은 인스타에서 붙여 주세요.'}));
+  const look = el('div',{class:'chips'});
+  [['photo','사진 꽉 채우기 + 가게 이름'],['card','캐러셀 장 그대로']].forEach(([v,l])=>{
+    const r = el('input',{type:'radio',name:'vLook',value:v}); r.checked = V.look===v;
+    r.onchange = () => { V.look = v; saveVideo(); }; look.append(el('label',{class:'chip'},[r,l])); });
+  P.append(look, el('div',{class:'hint',text:'표지는 캐러셀 표지 그대로 들어가요(위아래는 흐린 사진).'}));
+  const tot = el('div',{class:'status'});
+  const upd = () => { tot.textContent = `영상 길이 약 ${Math.round(totalSec()*10)/10}초 · ${st.slides.length}장`; saveVideo(); };
+  P.append(slider(V,'cover','표지 길이',.5,4,.1,'v',upd,SEC), slider(V,'dur','장면 길이',.1,2,.05,'v',upd,SEC), slider(V,'last','마지막 장 길이',.1,4,.1,'v',upd,SEC));
+  const bpm = el('input',{type:'number',inputmode:'numeric',min:'40',max:'240',placeholder:'예: 120',style:'max-width:110px'});
+  P.append(el('div',{class:'row'},[el('label',{class:'f'},['노래 BPM (선택)',bpm]),
+    el('button',{type:'button',class:'sm',onclick:()=>{ const b = +bpm.value; if(!(b>=40 && b<=240)) return;
+      let d = 60/b; while(d < .1) d *= 2; V.dur = Math.round(d*1000)/1000; saveVideo(); renderVideoTab(); }},['박자에 맞추기'])]));
+  P.append(el('div',{class:'hint',text:'BPM을 넣으면 장면 길이를 한 박자에 맞춰요(120이면 0.5초). 인스타에서 같은 노래를 붙이면 박자에 맞게 넘어가요.'}));
+  const chk = (label,key) => { const c = el('input',{type:'checkbox'}); c.checked = !!V[key]; c.onchange = () => { V[key] = c.checked; saveVideo(); }; return el('label',{class:'chip'},[c,label]); };
+  P.append(el('div',{class:'chips'},[chk('살짝 줌인','zoom'), chk('가게 이름 표시','label')]));
+  if(s && i>0) P.append(field(s,'vlabel',`${i+1}번 장 가게 이름 (비우면 "${(st.place||'장소 이름').trim()}")`,false,'v'+s.id));
+  else if(s) P.append(el('div',{class:'hint',text:'가게 이름은 2번 장부터 장마다 따로 적을 수 있어요(여러 가게 모음집용).'}));
+  upd(); P.append(tot);
+  const prog = el('div',{class:'status','aria-live':'polite'});
+  const res = el('div',{style:'display:flex;flex-direction:column;gap:8px'});
+  const mk = el('button',{type:'button',class:'primary'},['영상 만들기']);
+  const stop = el('button',{type:'button',class:'sm',hidden:true,onclick:()=>vidCtl?.abort()},['멈추기']);
+  const showResult = () => { res.textContent = ''; if(!vidBlob) return;
+    const url = URL.createObjectURL(vidBlob);
+    const v = el('video',{src:url,controls:true,playsinline:true,muted:true,loop:true,style:'width:100%;max-height:420px;border-radius:14px;background:#000'});
+    const sv = el('button',{type:'button',class:'primary'},['폰에 저장']), ss = el('span',{class:'status'});
+    sv.onclick = async () => { try { ss.textContent = await saveVideoFile(vidBlob); } catch(e){ ss.textContent = e?.name==='AbortError' ? '' : '저장하지 못했어요: ' + (e?.message||e?.name||e?.code); } };
+    res.append(v, el('div',{class:'row'},[sv, ss])); };
+  mk.onclick = async () => {
+    if(!st.slides.length){ prog.textContent = '사진을 먼저 넣어 주세요.'; return; }
+    mk.disabled = true; stop.hidden = false; vidBlob = null; res.textContent = ''; vidCtl = new AbortController();
+    const t0 = Date.now();
+    try { vidBlob = await makeVideo(r=>{ prog.textContent = `만드는 중… ${Math.round(r*100)}%`; }, vidCtl.signal);
+      prog.textContent = `다 만들었어요 (${Math.round(vidBlob.size/1e5)/10}MB, ${Math.round((Date.now()-t0)/100)/10}초 걸림). 아래에서 확인하고 저장하세요.`; showResult(); }
+    catch(e){ prog.textContent = e?.code==='cancelled' ? '멈췄어요.' : e?.code==='novideo' ? '이 브라우저에서는 영상을 만들 수 없어요. 사파리·크롬을 최신으로 업데이트해 주세요.' : '영상을 만들지 못했어요: ' + (e?.message||e?.name||'알 수 없는 오류'); }
+    finally { mk.disabled = false; stop.hidden = true; } };
+  P.append(el('div',{class:'row'},[mk, stop]), prog, res);
+  showResult();
+}
+
 // ---------- save ----------
 const safeName = () => (st.place||'carousel').trim().replace(/[\\/:*?"<>|\s]+/g,'_');
 async function exportBlobs(){
@@ -1894,7 +2026,7 @@ $('saveBtn').onclick = async ()=>{
 const UNDO = { stack:[], last:null, timer:null, busy:false };
 function undoSnap(){
   return { refs: st.slides.flatMap(s=>[s, ...(s.more||[])]), j: JSON.stringify({ place:st.place, memo:st.memo, addr:st.addr, tpl:st.tpl, coverTpl:st.coverTpl, style:st.style, cover:st.cover, caption:st.caption,
-    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, more:(s.more||[]).map(m=>m.id), ov:s.ov, addr:s.addr||'', addrMode:s.addrMode||'', tpl:s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
+    s: st.slides.map(s=>({ id:s.id, fx:s.fx, fy:s.fy, zoom:s.zoom, more:(s.more||[]).map(m=>m.id), ov:s.ov, addr:s.addr||'', addrMode:s.addrMode||'', tpl:s.tpl||'', vlabel:s.vlabel||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k,s[k]])) })) }) };
 }
 function undoBtnSync(){ $('undoBtn').disabled = !UNDO.stack.length; }
 function undoMark(){ if(UNDO.busy || loading || st.sample) return; clearTimeout(UNDO.timer); UNDO.timer = setTimeout(undoCommit, 500); }
@@ -1983,8 +2115,8 @@ async function saveNow(){
     const now = Date.now();
     await DB.put(
       { id: st.pid, name: st.place.trim() || '이름 없는 작업', updated: now, count: st.slides.length, thumb: tc.toDataURL('image/jpeg',.7) },
-      { id: st.pid, place: st.place, memo: st.memo, addr: st.addr, tpl: st.tpl, coverTpl: st.coverTpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES,
-        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, more: (s.more||[]).map(m=>({ buf:m.buf, fx:m.fx, fy:m.fy, zoom:m.zoom })), ov: s.ov, addr: s.addr||'', addrMode: s.addrMode||'', tpl: s.tpl||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
+      { id: st.pid, place: st.place, memo: st.memo, addr: st.addr, tpl: st.tpl, coverTpl: st.coverTpl, style: st.style, cover: st.cover, caption: st.caption, cur: st.cur, res: RES, video: st.video,
+        slides: st.slides.map(s=>({ buf: s.buf, fx: s.fx, fy: s.fy, zoom: s.zoom, more: (s.more||[]).map(m=>({ buf:m.buf, fx:m.fx, fy:m.fy, zoom:m.zoom })), ov: s.ov, addr: s.addr||'', addrMode: s.addrMode||'', tpl: s.tpl||'', vlabel: s.vlabel||'', ...Object.fromEntries(TEXT_KEYS.map(k=>[k, s[k]])) })) }
     );
     if(page===2 && !$('saveStatus').dataset.busy) $('saveStatus').textContent = `자동 저장 ${hhmm(now).split(' ')[1]}`;
   } catch(e){ if(page===2) $('saveStatus').textContent = '자동 저장 실패'; }
@@ -2003,7 +2135,7 @@ async function openProject(id){
       const url = URL.createObjectURL(new Blob([x.buf],{type:'image/jpeg'}));
       try {
         const s = newSlide(await shrink(await loadImg(url), 1800));
-        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '', addrMode:x.addrMode || '', tpl:x.tpl || '' });
+        Object.assign(s, { fx:x.fx ?? .5, fy:x.fy ?? .5, zoom:x.zoom ?? 1, ov:x.ov || null, buf:x.buf, addr:x.addr || '', addrMode:x.addrMode || '', tpl:x.tpl || '', vlabel:x.vlabel || '' });
         TEXT_KEYS.forEach(k=>s[k] = x[k] || '');
         for(const y of x.more||[]){ const u2 = URL.createObjectURL(new Blob([y.buf],{type:'image/jpeg'}));
           try { const m = newSlide(await shrink(await loadImg(u2), 1800)); Object.assign(m,{ fx:y.fx ?? .5, fy:y.fy ?? .5, zoom:y.zoom ?? 1, buf:y.buf }); s.more.push(m); }
@@ -2015,6 +2147,7 @@ async function openProject(id){
     st.place = d.place || ''; st.memo = d.memo || ''; st.addr = d.addr || ''; st.tpl = d.tpl || st.tpl; st.coverTpl = d.coverTpl || ''; LS.set('cm.tpl', st.tpl);
     if(d.style){ const s0 = STYLE0(); st.style = { ...s0, ...d.style, roles:{ ...s0.roles, ...(d.style.roles||{}) } }; saveStyle(); }
     st.cover = d.cover || { kicker:'', title:'', sub:'', hook:'' };
+    if(d.video) st.video = { ...VID0(), ...d.video };
     st.caption = d.caption || ''; $('caption').value = st.caption;
     st.slides = slides; st.cur = Math.max(0, Math.min(d.cur||0, slides.length-1)); st.sample = false;
     RES = d.res || null; showResearch();
