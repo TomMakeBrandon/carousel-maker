@@ -16,6 +16,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=Montserrat:wght@500;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&family=Do+Hyeon&family=Gowun+Dodum&family=Jua&family=Nanum+Myeongjo:wght@400;700;800&family=Gowun+Batang:wght@400;700&family=Nanum+Pen+Script&display=swap">
 <style>
+/* Pretendard (SIL OFL 1.1, fonts/Pretendard-LICENSE.txt), self-hosted variable font */
+@font-face{font-family:'Pretendard';font-weight:45 920;font-style:normal;font-display:swap;src:url('fonts/PretendardVariable.woff2') format('woff2-variations'),url('fonts/PretendardVariable.woff2') format('woff2')}
 /* Layout: setup panel on top; once photos exist, an editor whose preview + slide nav + tabs stick to the top while only the tab content scrolls; sticky save bar at the bottom. */
 /* Soft pastel "mochi" look: milky ground, pink primary, sky-blue and butter accents, round type, pill buttons, sticker shadows. */
 :root{
@@ -445,11 +447,11 @@ const F = {
   sc: '"Cormorant Garamond",Georgia,serif'
 };
 const FONTS = [
-  ['auto','템플릿 기본'], ['"Noto Sans KR"','고딕'], ['"Do Hyeon"','굵은 고딕'], ['"Gowun Dodum"','둥근 고딕'],
+  ['auto','템플릿 기본'], ['"Noto Sans KR"','고딕'], ['Pretendard','프리텐다드'], ['"Do Hyeon"','굵은 고딕'], ['"Gowun Dodum"','둥근 고딕'],
   ['"Jua"','귀여운체'], ['"Nanum Myeongjo"','명조'], ['"Gowun Batang"','바탕'], ['"Nanum Pen Script"','손글씨'],
   ['Montserrat','영문 모던'], ['"Cormorant Garamond"','영문 클래식']
 ];
-const FONT_NOTE = { 'auto':'템플릿에 맞춘 글씨', '"Noto Sans KR"':'깔끔한 기본 글씨', '"Do Hyeon"':'두껍고 눈에 띄는 글씨', '"Gowun Dodum"':'부드럽고 둥근 글씨',
+const FONT_NOTE = { 'auto':'템플릿에 맞춘 글씨', '"Noto Sans KR"':'깔끔한 기본 글씨', 'Pretendard':'요즘 많이 쓰는 반듯한 고딕', '"Do Hyeon"':'두껍고 눈에 띄는 글씨', '"Gowun Dodum"':'부드럽고 둥근 글씨',
   '"Jua"':'동글동글 귀여운 글씨', '"Nanum Myeongjo"':'책 같은 단정한 글씨', '"Gowun Batang"':'따뜻한 감성 글씨', '"Nanum Pen Script"':'손으로 쓴 글씨',
   'Montserrat':'영어용 · 한글은 고딕', '"Cormorant Garamond"':'영어용 · 한글은 고딕' };
 const fontLabel = v => (FONTS.find(f=>f[0]===v)||FONTS[0])[1];
