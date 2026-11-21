@@ -330,12 +330,10 @@ body.p2{overflow:hidden;padding-bottom:0}
       <div>
         <div class="lbl" style="margin-bottom:8px">템플릿</div>
         <div class="chips">
-          <label class="chip"><input type="radio" name="tpl" value="yoon">번호형</label>
-          <label class="chip"><input type="radio" name="tpl" value="tomato">코스형</label>
-          <label class="chip"><input type="radio" name="tpl" value="deon">감성형</label>
-          <label class="chip"><input type="radio" name="tpl" value="center">가운데형</label>
-          <label class="chip"><input type="radio" name="tpl" value="mag">매거진형</label>
-          <label class="chip"><input type="radio" name="tpl" value="blog">블로그형</label>
+          <label class="chip"><input type="radio" name="tpl" value="haon">모음집형</label>
+          <label class="chip"><input type="radio" name="tpl" value="pick">픽형</label>
+          <label class="chip"><input type="radio" name="tpl" value="news">카드뉴스형</label>
+          <label class="chip"><input type="radio" name="tpl" value="outro">마무리</label>
         </div>
       </div>
       <div id="styleDyn" style="display:flex;flex-direction:column;gap:14px"></div>
@@ -489,7 +487,7 @@ function loadStyle(){
   return s;
 }
 const st = {
-  place: '', memo: '', addr: '', handle: LS.get('cm.handle') || '', tpl: LS.get('cm.tpl') || 'yoon', coverTpl: '',
+  place: '', memo: '', addr: '', handle: LS.get('cm.handle') || '', tpl: (t => ['haon','pick','news','outro'].includes(t) ? t : 'haon')(LS.get('cm.tpl')), coverTpl: '',
   style: loadStyle(),
   cover: { kicker:'', title:'', sub:'', hook:'' },
   slides: [], cur: 0, caption: '', sample: false
@@ -507,20 +505,16 @@ let styleScope = 'all'; // 'all' | 'one'
 // ---------- fields per template ----------
 const FIELDS = {
   cover: {
-    yoon:   [['kicker','윗줄'],['title','장소 이름(큰 글씨)'],['sub','아랫줄 설명']],
-    tomato: [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','부제 ( | 뒤 문구)']],
-    deon:   [['hook','제목 (엔터로 줄바꿈)',1]],
-    center: [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','아랫줄']],
-    mag:    [['kicker','윗줄'],['hook','제목 (엔터로 줄바꿈)',1],['sub','아랫줄 (➪ 뒤 문구)']],
-    blog:   [['hook','맨 위 제목 (엔터로 줄바꿈)',1],['kicker','사진 아래 작은 설명'],['sub','본문 (엔터로 줄바꿈)',1]]
+    haon:  [['hook','제목 (엔터로 줄바꿈)',1],['sub','아래 작은 줄 (예: 성수 맛집 모음.zip)']],
+    pick:  [['kicker','윗줄 (예: PICK 6)'],['hook','제목 (엔터로 줄바꿈)',1]],
+    news:  [['kicker','윗줄 작은 문구'],['hook','제목 (엔터로 줄바꿈)',1]],
+    outro: [['hook','가운데 문구 (엔터로 줄바꿈)',1],['sub','아래 작은 줄 (예: @계정)']]
   },
   inner: {
-    yoon:   [['en_title','영문 제목'],['en_sub','영문 소제목'],['ko1','한글 1줄'],['ko2','한글 2줄']],
-    tomato: [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
-    deon:   [['ko_title','제목 (엔터로 줄바꿈)',1],['ko1','설명 1'],['ko2','설명 2']],
-    center: [['ko_title','이름·제목 (주소 켜면 옆에 | 주소)',1],['ko1','설명 1'],['ko2','설명 2']],
-    mag:    [['ko_title','이름·제목 (주소 켜면 옆에 | 주소)',1],['ko1','설명 1 (➪ 붙음)'],['ko2','설명 2']],
-    blog:   [['ko_title','맨 위 제목 (#태그도 좋아요)',1],['ko1','사진 아래 작은 설명'],['ko2','본문 (엔터로 줄바꿈)',1]]
+    haon:  [['ko_title','가게 이름',1],['en_sub','아래 작은 줄 (주소·위치, 주소 켜면 주소가 먼저)']],
+    pick:  [['ko_title','가게 이름',1],['en_sub','이름 옆 작은 글씨 (동네·역)'],['ko1','설명 1'],['ko2','설명 2'],['en_title','사진 위 메모 (선택)']],
+    news:  [['en_title','사진 위 작은 메모 (선택)']],
+    outro: [['ko_title','가운데 문구 (엔터로 줄바꿈)',1],['ko1','아래 작은 줄 (비우면 핸들)']]
   }
 };
 
@@ -595,161 +589,105 @@ const W90 = 'rgba(255,255,255,.9)', W80 = 'rgba(255,255,255,.8)';
 const SPARK = ' ˚₊‧';
 const coverK = i => i===0 ? (+st.style.coverScale || 1) : 1; // cover title is bigger, like a thumbnail
 
+// framed photo laid over the background (white border + soft shadow)
+function inset(ctx,m,x,y,w,hh){
+  ctx.save(); shadow(ctx,'dark',1.2); ctx.fillStyle = '#fff'; ctx.fillRect(x-6,y-6,w+12,hh+12); ctx.restore();
+  shadow(ctx,null); drawPhotoIn(ctx,m,x,y,w,hh);
+}
+// photos 1~4 filling the whole slide (grid)
+function fullGrid(ctx,s){
+  const P = [s, ...(s.more||[])].slice(0,4), g = 4;
+  if(P.length===1) return;
+  ctx.fillStyle = '#111'; ctx.fillRect(0,0,W,H);
+  const hw = (W-g)/2, hh = (H-g)/2;
+  if(P.length===2){ drawPhotoIn(ctx,P[0],0,0,W,hh); drawPhotoIn(ctx,P[1],0,hh+g,W,hh); return; }
+  if(P.length===3){ drawPhotoIn(ctx,P[0],0,0,W,hh); drawPhotoIn(ctx,P[1],0,hh+g,hw,hh); drawPhotoIn(ctx,P[2],hw+g,hh+g,hw,hh); return; }
+  P.forEach((m,k)=>drawPhotoIn(ctx,m,(k%2)*(hw+g),(k>>1)*(hh+g),hw,hh));
+}
+// small dark memo box over the photo
+function memoBox(ctx,str,cx,cy){
+  const L = lines(str).slice(0,2); if(!L.length) return;
+  const rs = RS('k'), size = 24*rs.size, lh = size*1.45;
+  ctx.font = `500 ${size}px ${F.ko}`; const w = Math.max(...L.map(t=>ctx.measureText(t).width)) + 44, hh = L.length*lh + 26;
+  const y0 = cy + st.style.textY + (+rs.y||0);
+  ctx.save(); shadow(ctx,null); ctx.fillStyle = 'rgba(45,35,28,.62)'; ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(cx-w/2,y0,w,hh,8); else ctx.rect(cx-w/2,y0,w,hh); ctx.fill(); ctx.restore();
+  L.forEach((t,k)=>txt(ctx,t,cx,cy+13+lh*(k+.78),{size:24,weight:500,color:'#fff',align:'center',role:'k',noShadow:true}));
+}
 const DRAW = {
-  yoon(ctx,s,i,c){
-    const CS = coverK(i), KS = 1+(CS-1)*.4;
-    const T = sz('t')*CS, K = sz('k'), B = sz('b');
+  // collection style: big two-line title / framed food photos over the shop photo, name with a bar and address
+  haon(ctx,s,i,c){
+    const CS = coverK(i), T = sz('t')*CS, B = sz('b');
+    txt(ctx,handleTxt(),58,76,{size:26,weight:800,fam:F.en,color:W80,role:'h',fixed:true});
     if(i===0){
-      grad(ctx,.4,.66);
-      const lhB = 36*B*KS, nS = lines(c.sub).length;
-      const tLast = 1094 - Math.max(0,nS-1)*lhB; // more sub lines push the title up
-      mlUp(ctx,c.sub,72,1094+56*B*KS,{size:26*KS,color:W80,role:'b'},lhB);
-      const t = mlUp(ctx,c.title||st.place,72,tLast,{size:76*CS,weight:800,role:'t'},84*T);
-      mlUp(ctx,c.kicker,72,t.first-84*T,{size:28*KS,color:W90,role:'k'},38*K*KS);
+      grad(ctx,.42,.72);
+      const sb = mlUp(ctx,c.sub,62,1258,{size:24,color:W80,role:'b'},34*B);
+      const last = sb.n ? sb.first-70*B : 1258, L = lines(c.hook, c.title||st.place), lh = 84*T;
+      L.forEach((t,k)=>txt(ctx,t,60,last-(L.length-1-k)*lh,{size:62*CS,weight:700,ls:2,role:'t'}));
     } else {
-      grad(ctx,.5,.6);
-      const lhB = 42*B, body = [...lines(s.ko1), ...lines(s.ko2)].slice(0,4), nb = Math.max(2, body.length);
-      const bottom = 1038+54*K+106*B, bFirst = bottom-(nb-1)*lhB;
-      body.forEach((t,k)=>txt(ctx,t,74,bFirst+k*lhB,{size:28,color:W90,role:'b'}));
-      const up = (nb-2)*lhB;
-      const sub = mlUp(ctx,(s.en_sub||'').toUpperCase(),74,1038+54*K-up,{size:27,weight:500,fam:F.en,color:W90,ls:1,role:'k'},36*K);
-      const tLast = sub.n ? sub.first-54*K : 1038-up;
-      const t = mlUp(ctx,(s.en_title||'').toUpperCase(),72,tLast,{size:50,weight:800,fam:F.en,ls:1,role:'t'},58*T);
-      const dy = st.style.textY, top = t.first - 166*T;
-      shadow(ctx,null); ctx.fillStyle='#fff'; ctx.fillRect(72,top+dy,88,88);
-      txt(ctx,String(numOf(i)).padStart(2,'0'),116,top+60+dy,{size:44,weight:800,fam:F.en,color:'#111',align:'center',fixed:true,noShadow:true});
-      txt(ctx,addrTxt(s),184,top+54,{size:28,weight:500,color:W90,maxW:W-184-72,role:'a'});
-    }
-    txt(ctx,handleTxt(),W/2,1312,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
-  },
-  tomato(ctx,s,i,c){
-    const CS = coverK(i), KS = 1+(CS-1)*.4;
-    const T = sz('t')*CS, K = sz('k'), B = sz('b');
-    txt(ctx,handleTxt(),W/2,52,{size:22,weight:500,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
-    grad(ctx,i===0?.36:.42,.72);
-    if(i===0){
-      const lhB = 34*B*KS, sb = mlUp(ctx,c.sub,74,1284,{size:24*KS,weight:500,color:W90,role:'b'},lhB,'|  ');
-      const last = 1284 - 70*B*KS - Math.max(0,sb.n-1)*lhB, lh = 82*T;
-      const L = lines(c.hook, c.title||st.place);
-      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:66*CS,weight:800,role:'t'}));
-      mlUp(ctx,c.kicker,74,last-(L.length-1)*lh-(60*T+24*K*KS),{size:27*KS,weight:500,color:W90,role:'k'},36*K*KS);
-    } else {
-      const lhB = 34*B, d = [s.ko1,s.ko2].filter(Boolean).join(' ');
-      const db = mlUp(ctx,d,74,1270,{size:24,weight:500,color:W90,role:'b'},lhB,'|  ');
-      const L = lines(s.ko_title), lh = 68*T, last = 1270 - 74*B - Math.max(0,db.n-1)*lhB;
-      L.forEach((t,k)=>txt(ctx,t,72,last-(L.length-1-k)*lh,{size:54,weight:800,role:'t'}));
-      txt(ctx,addrTxt(s,'📍 '),74,last-(L.length-1)*lh-58*T,{size:24,weight:500,color:W90,role:'a'});
+      const M = (s.more||[]).slice(0,3);
+      const spots = M.length===1 ? [[596,628,420,492]] : M.length===2 ? [[66,70,400,500],[566,800,440,470]] : [[66,70,380,470],[620,150,370,440],[566,820,440,440]];
+      M.forEach((m,k)=>inset(ctx,m,...spots[k]));
+      grad(ctx,.6,.62);
+      const small = addrTxt(s) || (s.en_sub||'').trim();
+      const yS = 1268, L = lines(s.ko_title), lh = 60*T, last = small ? yS-56*B : yS;
+      L.forEach((t,k)=>txt(ctx,t,86,last-(L.length-1-k)*lh,{size:50,weight:700,role:'t'}));
+      if(small) txt(ctx,'📍 '+small,88,yS,{size:22,color:W80,role:'a'});
+      const top = last-(L.length-1)*lh-46*T, oy = st.style.textY;
+      if(L.length || small){ shadow(ctx,null); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(62,top+oy,3,(small?yS:last)+10-top); }
     }
   },
-  deon(ctx,s,i,c){
-    const CS = coverK(i);
-    const T = sz('t')*CS, B = sz('b');
-    grad(ctx,i===0?.3:.36,.72);
-    const L = i===0 ? lines(c.hook, c.title||st.place) : lines(s.ko_title);
-    const body = i>0 ? [...lines(s.ko1), ...lines(s.ko2)].slice(0,4) : [], lhB = 40*B;
-    const last = (i===0 ? 1170 : 1090) - Math.max(0,body.length-2)*lhB, lh = 70*T;
-    L.forEach((t,k)=>{
-      const y = last-(L.length-1-k)*lh;
-      const w = txt(ctx,t,72,y,{size:52*CS,weight:700,maxW:W-220,role:'t'});
-      if(k===L.length-1) txt(ctx,SPARK,72+w+4,y-6*CS,{size:30*CS,weight:500,color:W90,role:'t'});
-    });
-    const top = last-(L.length-1)*lh;
-    txt(ctx,handleTxt(),72,top-66*T,{size:34,weight:500,fam:F.sc,italic:true,color:W90,role:'h'});
-    if(i>0){
-      body.forEach((t,k)=>txt(ctx,t,74,last+60*B+k*lhB,{size:27,color:W90,role:'b'}));
-      txt(ctx,addrTxt(s,'📍 '),74,last+60*B+(Math.max(2,body.length)-1)*lhB+50*B,{size:23,weight:500,color:W80,role:'a'});
-    }
-    txt(ctx,handleTxt(),W/2,1322,{size:18,weight:700,fam:F.en,color:W80,align:'center',role:'h',fixed:true});
-  },
-  // centered: small number before the name, "| address" after it, description centered under it
-  center(ctx,s,i,c){
-    const CS = coverK(i), KS = 1+(CS-1)*.4;
-    const T = sz('t')*CS, K = sz('k'), B = sz('b'), X = W/2;
-    txt(ctx,handleTxt(),X,70,{size:24,weight:500,fam:F.en,color:W90,align:'center',role:'h',fixed:true});
-    grad(ctx,i===0?.38:.45,.7);
+  // pick list: PICK label, numbered shop name + area, two description lines, optional memo box, photo grid
+  pick(ctx,s,i,c){
+    const CS = coverK(i), T = sz('t')*CS, B = sz('b'), K = sz('k');
     if(i===0){
-      const lhB = 40*B*KS, sb = mlUp(ctx,c.sub,X,1250,{size:28*KS,weight:500,color:W90,align:'center',role:'b'},lhB);
-      const last = sb.n ? sb.first-80*B*KS : 1250, lh = 90*T;
-      const L = lines(c.hook, c.title||st.place);
-      L.forEach((t,k)=>txt(ctx,t,X,last-(L.length-1-k)*lh,{size:76*CS,weight:800,align:'center',role:'t'}));
-      mlUp(ctx,c.kicker,X,last-(L.length-1)*lh-(72*T+10*K),{size:30*KS,weight:500,color:W90,align:'center',role:'k'},40*K*KS);
+      grad(ctx,.42,.74);
+      const L = lines(c.hook, c.title||st.place), lh = 92*T, last = 1176;
+      L.forEach((t,k)=>txt(ctx,t,58,last-(L.length-1-k)*lh,{size:62*CS,weight:800,role:'t'}));
+      mlUp(ctx,c.kicker,60,last-(L.length-1)*lh-84*T,{size:38,weight:700,fam:F.en,role:'k'},44*K);
+      txt(ctx,handleTxt(),W/2,1290,{size:20,weight:700,fam:F.en,color:W80,align:'center',ls:3,role:'h',fixed:true});
     } else {
-      const body = [...lines(s.ko1), ...lines(s.ko2)].slice(0,4), lhB = 50*B;
-      const bFirst = 1250-(Math.max(body.length,1)-1)*lhB;
-      body.forEach((t,k)=>txt(ctx,t,X,bFirst+k*lhB,{size:32,weight:700,align:'center',role:'b'}));
-      const L = lines(s.ko_title), lh = 76*T, last = body.length ? bFirst-84*B : 1250;
-      L.forEach((t,k)=>{
-        const y = last-(L.length-1-k)*lh, w = txt(ctx,t,X,y,{size:66,weight:800,align:'center',role:'t'});
-        if(k===0) txt(ctx,String(numOf(i)),X-w/2-6,y-34*T,{size:26,weight:700,fam:F.en,align:'right',role:'t'});
-        if(k===L.length-1) txt(ctx,addrTxt(s,'| '),X+w/2+16,y,{size:28,weight:500,color:W90,role:'a',maxW:Math.max(120,W-60-(X+w/2+16))});
-      });
-    }
-  },
-  // magazine: bold handle on top, circled number + name + "| address", "➪ description" below
-  mag(ctx,s,i,c){
-    const CS = coverK(i), KS = 1+(CS-1)*.4;
-    const T = sz('t')*CS, K = sz('k'), B = sz('b');
-    txt(ctx,handleTxt(),W/2,92,{size:40,weight:800,fam:F.en,align:'center',role:'h',fixed:true});
-    grad(ctx,i===0?.38:.5,.66);
-    if(i===0){
-      const lhB = 40*B*KS, sb = mlUp(ctx,c.sub,66,1250,{size:30*KS,weight:500,color:W90,role:'b'},lhB,'➪ ');
-      const last = sb.n ? sb.first-70*B*KS : 1250, lh = 86*T;
-      const L = lines(c.hook, c.title||st.place);
-      L.forEach((t,k)=>txt(ctx,t,62,last-(L.length-1-k)*lh,{size:72*CS,weight:700,role:'t'}));
-      mlUp(ctx,c.kicker,66,last-(L.length-1)*lh-(70*T+8*K),{size:30*KS,weight:500,color:W90,role:'k'},40*K*KS);
-    } else {
-      const body = [...lines(s.ko1), ...lines(s.ko2)].slice(0,4), lhB = 46*B;
-      const bFirst = 1250-(Math.max(body.length,1)-1)*lhB;
-      body.forEach((t,k)=>txt(ctx,(k===0?'➪ ':'   ')+t,66,bFirst+k*lhB,{size:30,weight:500,role:'b'}));
-      const L = lines(s.ko_title), lh = 70*T, last = body.length ? bFirst-70*B : 1250;
-      const rt = RS('t'), oy = st.style.textY + (+rt.y||0);
+      fullGrid(ctx,s);
+      grad(ctx,.5,.78);
+      memoBox(ctx,s.en_title,W/2,430);
+      const body = [...lines(s.ko1), ...lines(s.ko2)].slice(0,3), lhB = 36*B;
+      const bFirst = 1266-(Math.max(body.length,1)-1)*lhB;
+      body.forEach((t,k)=>txt(ctx,t,64,bFirst+k*lhB,{size:22,color:W90,role:'b'}));
+      const L = lines(s.ko_title), lh = 58*T, last = body.length ? bFirst-66*B : 1266;
+      const area = (s.en_sub||'').trim() || addrTxt(s);
       L.forEach((t,k)=>{
         const y = last-(L.length-1-k)*lh;
-        if(k===0){ const r = 24*T, cy = y + oy - 19*T; // circled number
-          shadow(ctx,'dark',.6); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(66+r,cy,r,0,Math.PI*2); ctx.fill(); shadow(ctx,null);
-          ctx.fillStyle='#111'; ctx.font = `800 ${Math.round(28*T)}px ${F.en}`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(numOf(i)),66+r,cy+1); ctx.textBaseline='alphabetic'; }
-        const x0 = 66+58*T, w = txt(ctx,t,x0,y,{size:56,weight:600,role:'t',maxW:W-x0-60});
-        if(k===L.length-1) txt(ctx,addrTxt(s,'|  '),x0+w+16,y-2,{size:24,weight:500,color:W90,role:'a',maxW:Math.max(120,W-60-(x0+w+16))});
+        if(k===0) txt(ctx,String(numOf(i)),60,y-28*T,{size:26,weight:700,fam:F.en,role:'t'});
+        const w = txt(ctx,t,92,y,{size:46,weight:800,role:'t'});
+        if(k===L.length-1 && area) txt(ctx,area,92+w+18,y-2,{size:22,weight:700,color:W90,role:'a',maxW:Math.max(120,W-60-(92+w+18))});
       });
     }
   },
-  // blog: white page, title on top, framed photo, small caption, centered body text (like a blog post)
-  blog(ctx,s,i,c){
-    const T = sz('t'), B = sz('b'), K = sz('k');
-    const INK = '#222222', GRAY = '#8a8a8a', PAD = 70;
-    shadow(ctx,null); ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,W,H);
-    const title = i===0 ? (c.hook || c.title || st.place) : s.ko_title;
-    const cap = i===0 ? c.kicker : s.ko1, body = i===0 ? c.sub : s.ko2;
-    const o = (size,extra) => ({ size, weight:500, color:INK, fixed:true, noShadow:true, ...extra });
-    let y;
-    if(i===0){ // cover: big left title, profile line, divider
-      const tl = wrapText(ctx,title,52*T,W-2*PAD-40).slice(0,3);
-      tl.forEach((t,k)=>txt(ctx,t,PAD-10,118+k*68*T,o(52,{role:'t',maxW:W-2*PAD})));
-      y = 118+(tl.length-1)*68*T + 80;
-      const hd = handleTxt().replace(/^@/,'') || (st.place||'').trim();
-      drawAvatar(ctx,PAD+26,y+30,36);
-      txt(ctx,hd,PAD+82,y+24,o(26,{fam:F.en,role:'h'}));
-      txt(ctx,'방금 전 · 비공개',PAD+82,y+58,o(19,{color:GRAY}));
-      y += 110; ctx.fillStyle = '#dddddd'; ctx.fillRect(PAD-50,y,W-2*PAD+100,2); y += 46;
-    } else { // inner: centered heading on top
-      const tl = wrapText(ctx,title,40*T,W-2*PAD).slice(0,2);
-      tl.forEach((t,k)=>txt(ctx,t,W/2,112+k*56*T,o(40,{color:'#2f5b8a',align:'center',role:'t'})));
-      y = tl.length ? 112+(tl.length-1)*56*T + 54 : 84;
+  // card news: small kicker + big bold title on the cover, photo only (optional memo) inside
+  news(ctx,s,i,c){
+    const CS = coverK(i), T = sz('t')*CS, K = sz('k');
+    txt(ctx,handleTxt(),W-56,74,{size:24,weight:800,fam:F.en,color:W90,align:'right',role:'h',fixed:true});
+    if(i===0){
+      grad(ctx,.4,.72);
+      const L = lines(c.hook, c.title||st.place), lh = 92*T, last = 1222;
+      L.forEach((t,k)=>txt(ctx,t,52,last-(L.length-1-k)*lh,{size:70*CS,weight:800,role:'t'}));
+      mlUp(ctx,c.kicker,56,last-(L.length-1)*lh-86*T,{size:30,weight:700,color:W90,role:'k'},40*K);
+    } else {
+      fullGrid(ctx,s);
+      if((s.en_title||'').trim()){ grad(ctx,.7,.5); memoBox(ctx,s.en_title,W/2,1150); }
     }
-    // bottom part: body lines, caption, address, handle
-    const bl = String(body||'').split('\n').flatMap(t=>t.trim() ? wrapText(ctx,t.trim(),32*B,W-2*PAD) : ['']).slice(0,8);
-    while(bl.length && !bl[bl.length-1]) bl.pop();
-    const lhB = 54*B, bodyH = bl.length ? bl.length*lhB + 20 : 0;
-    const ad = addrTxt(s), adH = ad ? 92 : 0, capH = cap ? 56 : 0;
-    const bottom = H - 60 - adH;
-    const ph = Math.max(320, bottom - bodyH - capH - 30 - y);
-    drawPhotos(ctx,s,PAD,y,W-2*PAD,ph);
-    let yy = y + ph;
-    if(cap){ txt(ctx,cap,W/2,yy+44,o(23,{color:GRAY,align:'center',role:'k'})); yy += capH; }
-    yy += 30;
-    bl.forEach((t,k)=>txt(ctx,t,W/2,yy+40*B+k*lhB,o(32,{align:'center',role:'b'})));
-    if(ad){ ctx.fillStyle = '#d8d8d8'; ctx.fillRect(PAD,H-60-adH+18,W-2*PAD,2); txt(ctx,'📍  '+ad,PAD+10,H-60-adH+72,o(25,{role:'a'})); }
-    if(i>0) txt(ctx,handleTxt(),W/2,H-26,o(18,{color:GRAY,fam:F.en,align:'center',role:'h'}));
+  },
+  // ending slide: dark photo, centered serif line, handle, "follow" with a line
+  outro(ctx,s,i,c){
+    const T = sz('t'), B = sz('b');
+    shadow(ctx,null); ctx.fillStyle = 'rgba(0,0,0,.42)'; ctx.fillRect(0,0,W,H);
+    const L = lines(i===0 ? (c.hook||st.place) : s.ko_title), lh = 60*T, serif = `"Nanum Myeongjo","Gowun Batang",serif`;
+    const first = 600 - (L.length-1)*lh/2;
+    L.forEach((t,k)=>txt(ctx,t,W/2,first+k*lh,{size:40,weight:700,fam:serif,align:'center',role:'t'}));
+    const small = ((i===0 ? c.sub : s.ko1) || handleTxt() || '').trim();
+    if(small) txt(ctx,small,W/2,first+(L.length-1)*lh+56*B,{size:26,fam:F.sc,color:W90,align:'center',role:'b'});
+    txt(ctx,'follow',W/2,1040,{size:30,fam:F.sc,italic:true,color:W80,align:'center',role:'h',fixed:true});
+    shadow(ctx,null); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(250,1062,580,2);
   }
 };
 
@@ -911,9 +849,9 @@ function drawPhotos(ctx,s,x,y,w,hh){
 function morePhotosBox(s,i){
   s.more = s.more || [];
   const box = el('div',{class:'role'}), n = 1 + s.more.length;
-  const isBlog = tplOf(i)==='blog';
+  const isBlog = ['haon','pick','news'].includes(tplOf(i));
   box.append(el('div',{class:'rh'},[el('b',{text:`이 장 사진 ${n}장 (최대 4장)`})]));
-  if(!isBlog) box.append(el('div',{class:'hint',text:'여러 장은 블로그형 템플릿에서 보여요. 글씨 탭에서 이 장 템플릿을 블로그형으로 골라 주세요.'}));
+  if(!isBlog) box.append(el('div',{class:'hint',text:'여러 장은 모음집형(작은 액자)·픽형·카드뉴스형(격자)에서 보여요.'}));
   const row = el('div',{class:'moreRow'});
   const thumb = (m,label,btn) => { const cv = el('canvas',{width:120,height:150}); const c = cv.getContext('2d');
     const im = m.img, sc = Math.max(120/im.width,150/im.height), dw = im.width*sc, dh = im.height*sc; c.drawImage(im,(120-dw)/2,(150-dh)/2,dw,dh);
@@ -960,7 +898,7 @@ function wrapText(ctx,str,size,maxW){
 }
 // draws at any canvas size (main preview is full size, thumbnails are small)
 // each slide can pick its own template (empty = the template for all slides). the cover keeps it in st.coverTpl
-const TPLS = [['yoon','번호형'],['tomato','코스형'],['deon','감성형'],['center','가운데형'],['mag','매거진형'],['blog','블로그형']];
+const TPLS = [['haon','모음집형'],['pick','픽형'],['news','카드뉴스형'],['outro','마무리']];
 const ownTpl = i => i===0 ? (st.coverTpl||'') : (st.slides[i]?.tpl||'');
 const setOwnTpl = (i,v) => { if(i===0) st.coverTpl = v; else if(st.slides[i]) st.slides[i].tpl = v; };
 // slide number counts only slides with the same template (cover not counted): yoon,mag,mag,yoon -> 1,1,2,2
@@ -1217,7 +1155,6 @@ function renderStyleTab(){
   P.append(el('div',{class:'lbl',text:'글씨 위치·사진 어둡기 (모든 장)'}));
   P.append(slider(st.style,'textY','글씨 전체 위치',-300,150,5,'gs',saveStyle,UPDOWN));
   P.append(slider(st.style,'shade','어둡기',.3,1.6,.05,'gs',saveStyle));
-  if(st.slides.some((_,k)=>tplOf(k)==='blog')) P.append(avatarEditor());
   P.append(el('div',{class:'lbl',text:'로고 (모든 장)'}));
   P.append(logoEditor());
 }
@@ -1587,10 +1524,11 @@ ${researchBlock()}- 사진과 장소 설명이 가장 우선이다. 검색 정�
 - 지역(서울·대구 등)은 장소 설명에 있을 때만 쓴다.
 - 가격·주소·영업시간은 장소 설명에 있을 때만 캡션에 쓴다. 과장 표현 금지. 슬라이드 문구에는 이모지 없음.
 - 말투 요청이 없으면 담백한 감성. 한국어 문구는 짧은 명사형이나 '~하기', '~곳'으로 끝낸다.
-- en_title은 영어 대문자 2~3단어(예: A LITTLE BREAK), en_sub는 영어 대문자 1~3단어(예: SPACE & OBJECTS).
-- ko1, ko2는 각각 16자 이내, 둘이 이어져 한 문장처럼 읽히게.
-- ko_title은 한 줄 또는 두 줄(줄바꿈 \\n), 각 줄 14자 이내.
-- cover.hook은 저장하고 싶게 만드는 두 줄 제목(줄바꿈 \\n, 각 줄 12자 이내).
+- ko_title은 그 장의 짧은 제목(메뉴·공간 이름, 한 줄 14자 이내). 여러 가게 모음이면 가게 이름.
+- en_sub는 동네·역 이름처럼 아주 짧게(장소 설명에 있을 때만, 없으면 "").
+- ko1, ko2는 각각 30자 이내 설명, 둘이 이어져 읽히게.
+- en_title은 사진 위에 붙일 짧은 메모(18자 이내, 예: 창가 자리가 예쁜 곳). 어울리지 않으면 "".
+- cover.hook은 저장하고 싶게 만드는 두 줄 제목(줄바꿈 \\n, 각 줄 12자 이내). cover.kicker는 'PICK 6'처럼 짧은 윗줄, cover.sub는 '성수 맛집 모음.zip'처럼 짧은 아랫줄.
 - caption은 아래 순서로 최대한 알차게 쓴다(줄바꿈 \\n). 사진·장소 설명·검색 정보에 근거한 내용만.
   1) 첫 줄: 저장하고 싶게 만드는 한 문장
   2) 빈 줄, 장소 소개 2~3문장 (분위기, 어떤 날 가면 좋은지)
@@ -1761,8 +1699,8 @@ font 목록: ${FONTS.map(([v,l])=>`${JSON.stringify(v)}=${l}`).join(', ')}
 - style.shade: 사진 아래쪽 어둡게 하는 정도 0.3~1.6 (기본 1)
 - style.coverScale: 표지(썸네일) 제목만 키우는 배수 0.8~2.2 (기본 1.45, 조금=0.15, 많이=0.3씩)
 - style.tone: 문구 말투 요청(문자열). 예: "발랄하게", "반말로"
-- tpl: "yoon"(번호형) | "tomato"(코스형) | "deon"(감성형) | "center"(가운데형) | "mag"(매거진형) | "blog"(블로그형: 흰 배경·사진 액자·본문) — 2번 장부터(표지는 coverTpl 없으면 같이)
-- coverTpl: 표지만 다른 템플릿. "yoon"|"tomato"|"deon"|"center"|"mag"|"blog", 같게 하려면 ""
+- tpl: "haon"(모음집형: 큰 두 줄 제목·작은 액자 사진·가게 이름과 주소) | "pick"(픽형: 번호·가게 이름·동네·설명 두 줄·메모) | "news"(카드뉴스형: 표지 큰 제목, 안쪽은 사진만) | "outro"(마무리: 가운데 문구·follow) — 2번 장부터(표지는 coverTpl 없으면 같이)
+- coverTpl: 표지만 다른 템플릿. "haon"|"pick"|"news"|"outro", 같게 하려면 ""
 - slides[].tpl: 그 장(i, 0=표지)만 다른 템플릿, 모든 장과 같게 하려면 ""
 - place: 장소 이름, memo: 장소 설명(지역·특징 등 사용자가 알려준 사실)
 - cover: {kicker, title, sub, hook} 중 바꿀 것만 (hook은 두 줄 제목, 줄바꿈 \\n)
