@@ -1,6 +1,6 @@
 {
-  "name": "캐러셀 메이커 2",
-  "short_name": "캐러셀2",
+  "name": "캐러셀 메이커",
+  "short_name": "캐러셀",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
